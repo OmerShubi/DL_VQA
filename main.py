@@ -9,7 +9,6 @@ import hydra
 from preprocessing import preprocess_images, preprocess_vocab
 from preprocessing.data_preprocessing import VQA_dataset
 from train import train
-from dataset import MyDataset
 from models.base_model import MyModel
 from torch.utils.data import DataLoader
 from utils import main_utils, train_utils

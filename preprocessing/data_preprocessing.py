@@ -11,12 +11,15 @@ import torch.utils.data
 
 class VQA_dataset(torch.utils.data.Dataset):
     """ VQA_dataset dataset, open-ended """
+
     def __init__(self, data_paths, other_paths, answerable_only=False):
         super(VQA_dataset, self).__init__()
-
-        questions_path = data_paths['questions']
-        answers_path = data_paths['answers']
+        base_path = other_paths['base_path']
+        questions_path = os.path.join(base_path, data_paths['questions'])
+        answers_path = os.path.join(base_path, data_paths['answers'])
         vocabulary_path = other_paths['vocab_path']
+        self.image_features_path = other_paths['processed_imgs']
+
         with open(questions_path, 'r') as fd:
             questions_json = json.load(fd)
         with open(answers_path, 'r') as fd:
@@ -31,14 +34,13 @@ class VQA_dataset(torch.utils.data.Dataset):
         self.answer_token_to_index = self.vocab['answer']
 
         # questions - Turn a question into a padded vector of vocab indices and a question length
-        questions = list(prepare_questions(questions_json))
-        self.questions = [self._encode_question(q) for q in questions]
+        self.questions_list = list(prepare_questions(questions_json))
+        self.questions = [self._encode_question(q) for q in self.questions_list]
         # answers - Turn an answer into a vector of counts of all possible answers
         answers = list(prepare_answers(answers_json))
         self.answers = [self._encode_answers(a) for a in answers]
 
         # v - for each question store image id in coco_ids
-        self.image_features_path = other_paths['processed_imgs']
         self.coco_id_to_h5index = self._create_coco_id_to_index()
         self.coco_ids = [q['image_id'] for q in questions_json['questions']]
 
@@ -50,7 +52,7 @@ class VQA_dataset(torch.utils.data.Dataset):
     @property
     def max_question_length(self):
         if not hasattr(self, '_max_length'):
-            self._max_length = max(map(len, self.questions))
+            self._max_length = max(map(len, self.questions_list))
         return self._max_length
 
     @property
@@ -148,8 +150,6 @@ _punctuation = re.compile(r'([{}])'.format(re.escape(_punctuation_chars)))
 _punctuation_with_a_space = re.compile(r'(?<= )([{0}])|([{0}])(?= )'.format(_punctuation_chars))
 
 
-
-
 def prepare_questions(questions_json):
     """
         Tokenize and normalize questions from a given question json in the usual VQA_dataset format.
@@ -167,6 +167,7 @@ def prepare_answers(answers_json):
         Normalize answers from a given answer json in the usual VQA_dataset format.
     """
     answers = [[a['answer'] for a in ans_dict['answers']] for ans_dict in answers_json['annotations']]
+
     # The only normalization that is applied to both machine generated answers as well as
     # ground truth answers is replacing most punctuation with space (see [0] and [1]).
     # Since potential machine generated answers are just taken from most common answers, applying the other
@@ -189,7 +190,6 @@ def prepare_answers(answers_json):
         res = s.strip()
 
         return res
-
 
     for answer_list in answers:
         yield list(map(process_punctuation, answer_list))
@@ -235,6 +235,7 @@ class CocoImages(torch.utils.data.Dataset):
 
 class Composite(torch.utils.data.Dataset):
     """ Dataset that is a composite of several Dataset objects. Useful for combining splits of a dataset. """
+
     def __init__(self, *datasets):
         self.datasets = datasets
 
@@ -249,5 +250,3 @@ class Composite(torch.utils.data.Dataset):
 
     def __len__(self):
         return sum(map(len, self.datasets))
-
-
