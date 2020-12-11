@@ -1,6 +1,7 @@
 import os
 
 import h5py
+import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -8,9 +9,44 @@ import torch.utils.data
 import torchvision.models as models
 from tqdm import tqdm
 
-from main_preprocess import init_coco_loader
+from preprocessing import data_preprocessing
 from resnet import resnet as caffe_resnet
+import torchvision.transforms as transforms
 
+
+def get_transformations(target_size, central_fraction=1.0):
+    return transforms.Compose([
+        transforms.Scale(int(target_size / central_fraction)),
+        transforms.CenterCrop(target_size),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
+    ])
+
+def init_coco_loader(*paths):
+    """
+
+    :param paths: iterable, paths to raw images directories
+    :return: CocoImages combined dataloader
+    """
+    # preprocess config
+    preprocess_batch_size = 64  # TODO param
+    image_size = 320  # scale shorter end of image to this size and centre crop  # TODO param
+    central_fraction = 0.875  # only take this much of the centre when scaling and centre cropping  # TODO param
+    data_workers = 8  # TODO param
+
+    transformations = get_transformations(image_size, central_fraction)
+    datasets = [data_preprocessing.CocoImages(path, transform=transformations) for path in paths]
+    img_dataset = data_preprocessing.Composite(*datasets)
+
+    img_data_loader = torch.utils.data.DataLoader(
+        img_dataset,
+        batch_size=preprocess_batch_size,
+        num_workers=data_workers,
+        shuffle=False,
+        pin_memory=True,
+    )
+    return img_data_loader
 
 class Net(nn.Module):
     def __init__(self):
@@ -24,8 +60,6 @@ class Net(nn.Module):
     def forward(self, x):
         self.model(x)
         return self.buffer
-
-
 
 
 def main():

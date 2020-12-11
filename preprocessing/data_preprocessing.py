@@ -1,4 +1,3 @@
-import copy
 import json
 import os
 import os.path
@@ -9,47 +8,15 @@ import h5py
 import torch
 import torch.utils.data
 
-# import config
-from utils import path_for
 
+class VQA_dataset(torch.utils.data.Dataset):
+    """ VQA_dataset dataset, open-ended """
+    def __init__(self, data_paths, other_paths, answerable_only=False):
+        super(VQA_dataset, self).__init__()
 
-def get_loader(train=False, val=False, test=False):
-    """ Returns a data loader for the desired split """
-    assert train + val + test == 1, 'need to set exactly one of {train, val, test} to True'  # TODO one param!!!
-
-    preprocessed_path = './resnet-14x14.h5'  # TODO param
-    vocab_path = './vocab.json'  # TODO param
-
-    split = VQA(
-        path_for(train=train, val=val, test=test, question=True),
-        path_for(train=train, val=val, test=test, answer=True),
-        preprocessed_path, vocabulary_path=vocab_path,
-        answerable_only=train,
-    )
-    batch_size = 128  # TODO param
-    data_workers = 8  # TODO param
-
-    loader = torch.utils.data.DataLoader(
-        split,
-        batch_size=batch_size,
-        shuffle=train,  # only shuffle the data in training
-        pin_memory=True,
-        num_workers=data_workers,
-        collate_fn=collate_fn,
-    )
-    return loader
-
-
-def collate_fn(batch):
-    # put question lengths in descending order so that we can use packed sequences later
-    batch.sort(key=lambda x: x[-1], reverse=True)
-    return torch.utils.data.dataloader.default_collate(batch)
-
-
-class VQA(torch.utils.data.Dataset):
-    """ VQA dataset, open-ended """
-    def __init__(self, questions_path, answers_path, image_features_path, vocabulary_path, answerable_only=False):
-        super(VQA, self).__init__()
+        questions_path = data_paths['questions']
+        answers_path = data_paths['answers']
+        vocabulary_path = other_paths['vocab_path']
         with open(questions_path, 'r') as fd:
             questions_json = json.load(fd)
         with open(answers_path, 'r') as fd:
@@ -70,8 +37,8 @@ class VQA(torch.utils.data.Dataset):
         answers = list(prepare_answers(answers_json))
         self.answers = [self._encode_answers(a) for a in answers]
 
-        # v
-        self.image_features_path = image_features_path
+        # v - for each question store image id in coco_ids
+        self.image_features_path = other_paths['processed_imgs']
         self.coco_id_to_h5index = self._create_coco_id_to_index()
         self.coco_ids = [q['image_id'] for q in questions_json['questions']]
 
@@ -185,7 +152,7 @@ _punctuation_with_a_space = re.compile(r'(?<= )([{0}])|([{0}])(?= )'.format(_pun
 
 def prepare_questions(questions_json):
     """
-        Tokenize and normalize questions from a given question json in the usual VQA format.
+        Tokenize and normalize questions from a given question json in the usual VQA_dataset format.
     """
     questions = [q['question'] for q in questions_json['questions']]
     for question in questions:
@@ -197,7 +164,7 @@ def prepare_questions(questions_json):
 
 def prepare_answers(answers_json):
     """
-        Normalize answers from a given answer json in the usual VQA format.
+        Normalize answers from a given answer json in the usual VQA_dataset format.
     """
     answers = [[a['answer'] for a in ans_dict['answers']] for ans_dict in answers_json['annotations']]
     # The only normalization that is applied to both machine generated answers as well as
@@ -226,8 +193,6 @@ def prepare_answers(answers_json):
 
     for answer_list in answers:
         yield list(map(process_punctuation, answer_list))
-
-
 
 
 class CocoImages(torch.utils.data.Dataset):
