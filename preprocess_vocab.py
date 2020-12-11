@@ -10,6 +10,7 @@ def extract_vocab(iterable, top_k=None, start=0):
     """ Turns an iterable of list of tokens into a vocabulary.
         These tokens could be single answers or word tokens in questions.
     """
+    # TODO change to pytorch Vocab
     all_tokens = itertools.chain.from_iterable(iterable)
     counter = Counter(all_tokens)
     if top_k:
@@ -35,16 +36,17 @@ def main():
     questions = data_preprocessing.prepare_questions(questions)
     answers = data_preprocessing.prepare_answers(answers)
 
+
     question_vocab = extract_vocab(questions, start=1)
 
-    max_answers = 3000
+    max_answers = 3000  # TODO param
     answer_vocab = extract_vocab(answers, top_k=max_answers)
 
     vocabs = {
         'question': question_vocab,
         'answer': answer_vocab,
     }
-    vocabulary_path = './vocab.json'  # path where the used vocabularies for question and answers are saved to
+    vocabulary_path = './vocab.json'  # path where the used vocabularies for question and answers are saved to  # TODO param
 
     with open(vocabulary_path, 'w') as fd:
         json.dump(vocabs, fd)

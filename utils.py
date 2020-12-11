@@ -1,9 +1,10 @@
 import os
+import torchvision.transforms as transforms
 
 
 def path_for(train=False, val=False, test=False, question=False, answer=False):
-    task = 'OpenEnded'
-    dataset = 'mscoco'
+    task = 'OpenEnded'  # TODO param
+    dataset = 'mscoco'  # TODO param
     qa_path = 'vqa'  # directory containing the question and annotation jsons
     base_path = '/datashare'
     assert train + val + test == 1
@@ -22,3 +23,13 @@ def path_for(train=False, val=False, test=False, question=False, answer=False):
     s = fmt.format(task, dataset, split)
     s = os.path.join(base_path, s)
     return os.path.join(qa_path, s)
+
+
+def get_transformations(target_size, central_fraction=1.0):
+    return transforms.Compose([
+        transforms.Scale(int(target_size / central_fraction)),
+        transforms.CenterCrop(target_size),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
+    ])

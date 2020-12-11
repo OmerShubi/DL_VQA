@@ -1,3 +1,4 @@
+import copy
 import json
 import os
 import os.path
@@ -14,18 +15,19 @@ from utils import path_for
 
 def get_loader(train=False, val=False, test=False):
     """ Returns a data loader for the desired split """
-    assert train + val + test == 1, 'need to set exactly one of {train, val, test} to True'
-    print(path_for(train=train, val=val, test=test, question=True))
-    preprocessed_path = './resnet-14x14.h5'
-    vocab_path = './vocab.json'
+    assert train + val + test == 1, 'need to set exactly one of {train, val, test} to True'  # TODO one param!!!
+
+    preprocessed_path = './resnet-14x14.h5'  # TODO param
+    vocab_path = './vocab.json'  # TODO param
+
     split = VQA(
         path_for(train=train, val=val, test=test, question=True),
         path_for(train=train, val=val, test=test, answer=True),
         preprocessed_path, vocabulary_path=vocab_path,
         answerable_only=train,
     )
-    batch_size = 128
-    data_workers = 8
+    batch_size = 128  # TODO param
+    data_workers = 8  # TODO param
 
     loader = torch.utils.data.DataLoader(
         split,
@@ -58,18 +60,19 @@ class VQA(torch.utils.data.Dataset):
 
         # vocab
         self.vocab = vocab_json
-        self.token_to_index = self.vocab['question']
-        self.answer_to_index = self.vocab['answer']
+        self.question_token_to_index = self.vocab['question']
+        self.answer_token_to_index = self.vocab['answer']
 
-        # q and a
-        self.questions = list(prepare_questions(questions_json))
-        self.answers = list(prepare_answers(answers_json))
-        self.questions = [self._encode_question(q) for q in self.questions]
-        self.answers = [self._encode_answers(a) for a in self.answers]
+        # questions - Turn a question into a padded vector of vocab indices and a question length
+        questions = list(prepare_questions(questions_json))
+        self.questions = [self._encode_question(q) for q in questions]
+        # answers - Turn an answer into a vector of counts of all possible answers
+        answers = list(prepare_answers(answers_json))
+        self.answers = [self._encode_answers(a) for a in answers]
 
         # v
         self.image_features_path = image_features_path
-        self.coco_id_to_index = self._create_coco_id_to_index()
+        self.coco_id_to_h5index = self._create_coco_id_to_index()
         self.coco_ids = [q['image_id'] for q in questions_json['questions']]
 
         # only use questions that have at least one answer?
@@ -85,7 +88,7 @@ class VQA(torch.utils.data.Dataset):
 
     @property
     def num_tokens(self):
-        return len(self.token_to_index) + 1  # add 1 for <unknown> token at index 0
+        return len(self.question_token_to_index) + 1  # add 1 for <unknown> token at index 0
 
     def _create_coco_id_to_index(self):
         """ Create a mapping from a COCO image id into the corresponding index into the h5 file """
@@ -114,20 +117,22 @@ class VQA(torch.utils.data.Dataset):
 
     def _encode_question(self, question):
         """ Turn a question into a vector of indices and a question length """
+        # TODO change to pytorch padding
         vec = torch.zeros(self.max_question_length).long()
         for i, token in enumerate(question):
-            index = self.token_to_index.get(token, 0)
+            index = self.question_token_to_index.get(token, 0)
             vec[i] = index
         return vec, len(question)
 
     def _encode_answers(self, answers):
         """ Turn an answer into a vector """
+        # TODO change to sparse vector!
         # answer vec will be a vector of answer counts to determine which answers will contribute to the loss.
         # this should be multiplied with 0.1 * negative log-likelihoods that a model produces and then summed up
         # to get the loss that is weighted by how many humans gave that answer
-        answer_vec = torch.zeros(len(self.answer_to_index))
+        answer_vec = torch.zeros(len(self.answer_token_to_index))
         for answer in answers:
-            index = self.answer_to_index.get(answer)
+            index = self.answer_token_to_index.get(answer)
             if index is not None:
                 answer_vec[index] += 1
         return answer_vec
@@ -139,7 +144,7 @@ class VQA(torch.utils.data.Dataset):
             # forks for multiple works, every child would use the same file object and fail
             # Having multiple readers using different file objects is fine though, so we just init in here.
             self.features_file = h5py.File(self.image_features_path, 'r')
-        index = self.coco_id_to_index[image_id]
+        index = self.coco_id_to_h5index[image_id]
         dataset = self.features_file['features']
         img = dataset[index].astype('float32')
         return torch.from_numpy(img)
@@ -176,16 +181,31 @@ _punctuation = re.compile(r'([{}])'.format(re.escape(_punctuation_chars)))
 _punctuation_with_a_space = re.compile(r'(?<= )([{0}])|([{0}])(?= )'.format(_punctuation_chars))
 
 
+
+
+periodStrip = re.compile("(?!<=\d)(\.)(?!\d)")
+commaStrip = re.compile("(\d)(\,)(\d)")
+punct = [';', r"/", '[', ']', '"', '{', '}',
+              '(', ')', '=', '+', '\\', '_', '-',
+              '>', '<', '@', '`', ',', '?', '!']
+
+
 def prepare_questions(questions_json):
-    """ Tokenize and normalize questions from a given question json in the usual VQA format. """
+    """
+        Tokenize and normalize questions from a given question json in the usual VQA format.
+    """
     questions = [q['question'] for q in questions_json['questions']]
     for question in questions:
+        if question[-1] != '?':
+            raise Exception("Final char not ?")
         question = question.lower()[:-1]
         yield question.split(' ')
 
 
 def prepare_answers(answers_json):
-    """ Normalize answers from a given answer json in the usual VQA format. """
+    """
+        Normalize answers from a given answer json in the usual VQA format.
+    """
     answers = [[a['answer'] for a in ans_dict['answers']] for ans_dict in answers_json['annotations']]
     # The only normalization that is applied to both machine generated answers as well as
     # ground truth answers is replacing most punctuation with space (see [0] and [1]).
@@ -193,10 +213,22 @@ def prepare_answers(answers_json):
     # normalizations is not needed, assuming that the human answers are already normalized.
     # [0]: http://visualqa.org/evaluation.html
     # [1]: https://github.com/VT-vision-lab/VQA/blob/3849b1eae04a0ffd83f56ad6f70ebd0767e09e0f/PythonEvaluationTools/vqaEvaluation/vqaEval.py#L96
+    # https://github.com/GT-Vision-Lab/VQA/blob/3849b1eae04a0ffd83f56ad6f70ebd0767e09e0f/PythonEvaluationTools/vqaEvaluation/vqaEval.py#L96
+    def processPunctuation2(inText):
+        outText = inText
+        for p in punct:
+            if (p + ' ' in inText or ' ' + p in inText) or (re.search(commaStrip, inText) != None):
+                outText = outText.replace(p, '')
+            else:
+                outText = outText.replace(p, ' ')
+        outText = periodStrip.sub("", outText, re.UNICODE)
+        return outText
 
     def process_punctuation(s):
         # the original is somewhat broken, so things that look odd here might just be to mimic that behaviour
         # this version should be faster since we use re instead of repeated operations on str's
+        res2 = processPunctuation2(copy.deepcopy(s))
+
         if _punctuation.search(s) is None:
             return s
         s = _punctuation_with_a_space.sub('', s)
@@ -204,19 +236,30 @@ def prepare_answers(answers_json):
             s = s.replace(',', '')
         s = _punctuation.sub(' ', s)
         s = _period_strip.sub('', s)
-        return s.strip()
+        res = s.strip()
+        if res != res2:
+            raise Exception("MISMATCHHHH")
+        return res
+
 
     for answer_list in answers:
         yield list(map(process_punctuation, answer_list))
 
 
+
+
 class CocoImages(torch.utils.data.Dataset):
-    """ Dataset for MSCOCO images located in a folder on the filesystem """
     def __init__(self, path, transform=None):
+        """
+        Dataset for MSCOCO images located in a folder on the filesystem
+
+        :param path: path to image dir
+        :param transform: transforms.Compose, transformations to apply
+        """
         super(CocoImages, self).__init__()
         self.path = path
         self.id_to_filename = self._find_images()
-        self.sorted_ids = sorted(self.id_to_filename.keys()) # TODO cahnge to list not needed  # used for deterministic iteration order
+        self.sorted_ids = sorted(self.id_to_filename.keys())  # used for deterministic iteration order
         print('found {} images in {}'.format(len(self), self.path))
         self.transform = transform
 
