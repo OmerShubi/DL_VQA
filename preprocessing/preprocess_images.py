@@ -10,13 +10,12 @@ import torchvision.models as models
 from tqdm import tqdm
 
 from preprocessing import data_preprocessing
-from resnet import resnet as caffe_resnet
 import torchvision.transforms as transforms
 
 
 def get_transformations(target_size, central_fraction=1.0):
     return transforms.Compose([
-        transforms.Scale(int(target_size / central_fraction)),
+        transforms.Resize(size=int(target_size / central_fraction)),
         transforms.CenterCrop(target_size),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -51,7 +50,7 @@ def init_coco_loader(*paths):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.model = caffe_resnet.resnet152(pretrained=True)
+        self.model = models.resnet152(pretrained=True)
 
         def save_output(module, input, output):
             self.buffer = output
@@ -102,4 +101,4 @@ def create_processed_images(data_base_path, train_imgs_path, val_imgs_path, save
 
 
 if __name__ == '__main__':
-    create_processed_images()
+    create_processed_images('/datashare','train2014','val2014','./resnet18_7.h5')
