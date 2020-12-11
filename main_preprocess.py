@@ -37,10 +37,10 @@ def init_coco_loader(*paths):
 
 
 if __name__ == '__main__':
-    base_path = 'datashare'
+    base_path = '/datashare'
     train_path = os.path.join(base_path, 'train2014')  # directory of training images
     val_path = os.path.join(base_path, 'val2014')  # directory of validation images
 
-    loader = init_coco_loader(train_path, val_path)
-    # train_loader = data_preprocessing.get_loader(train=True)
+    img_loader = init_coco_loader(train_path, val_path)  # TODO is it okay both train and val?
+    train_loader = data_preprocessing.get_loader(train=True)
     # valid_loader = data_preprocessing.get_loader(val=True)

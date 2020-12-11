@@ -6,20 +6,40 @@ import re
 from PIL import Image
 import h5py
 import torch
-import torch.utils.data as data
-import torchvision.transforms as transforms
+import torch.utils.data
 
-import config
-import utils
+# import config
+# import utils
+def path_for(train=False, val=False, test=False, question=False, answer=False):
+    task = 'OpenEnded'
+    dataset = 'mscoco'
+    qa_path = 'vqa'  # directory containing the question and annotation jsons
+    base_path = '/datashare'
+    assert train + val + test == 1
+    assert question + answer == 1
+    assert not (test and answer), 'loading answers from test split not supported'  # if you want to eval on test, you need to implement loading of a VQA Dataset without given answers yourself
+    if train:
+        split = 'train2014'
+    elif val:
+        split = 'val2014'
+    else:
+        split = 'test2015'
+    if question:
+        fmt = '{0}_{1}_{2}_questions.json'
+    else:
+        fmt = '{1}_{2}_annotations.json'
+    s = fmt.format(task, dataset, split)
+    s = os.path.join(base_path, s)
+    return os.path.join(qa_path, s)
 
 
 def get_loader(train=False, val=False, test=False):
     """ Returns a data loader for the desired split """
     assert train + val + test == 1, 'need to set exactly one of {train, val, test} to True'
-    print(utils.path_for(train=train, val=val, test=test, question=True))
+    print(path_for(train=train, val=val, test=test, question=True))
     split = VQA(
-        utils.path_for(train=train, val=val, test=test, question=True),
-        utils.path_for(train=train, val=val, test=test, answer=True),
+        path_for(train=train, val=val, test=test, question=True),
+        path_for(train=train, val=val, test=test, answer=True),
         config.preprocessed_path,
         answerable_only=train,
     )
@@ -37,18 +57,18 @@ def get_loader(train=False, val=False, test=False):
 def collate_fn(batch):
     # put question lengths in descending order so that we can use packed sequences later
     batch.sort(key=lambda x: x[-1], reverse=True)
-    return data.dataloader.default_collate(batch)
+    return torch.utils.data.dataloader.default_collate(batch)
 
 
-class VQA(data.Dataset):
+class VQA(torch.utils.data.Dataset):
     """ VQA dataset, open-ended """
-    def __init__(self, questions_path, answers_path, image_features_path, answerable_only=False):
+    def __init__(self, questions_path, answers_path, image_features_path, vocabulary_path, answerable_only=False):
         super(VQA, self).__init__()
         with open(questions_path, 'r') as fd:
             questions_json = json.load(fd)
         with open(answers_path, 'r') as fd:
             answers_json = json.load(fd)
-        with open(config.vocabulary_path, 'r') as fd:
+        with open(vocabulary_path, 'r') as fd:
             vocab_json = json.load(fd)
         self._check_integrity(questions_json, answers_json)
 
@@ -206,13 +226,13 @@ def prepare_answers(answers_json):
         yield list(map(process_punctuation, answer_list))
 
 
-class CocoImages(data.Dataset):
+class CocoImages(torch.utils.data.Dataset):
     """ Dataset for MSCOCO images located in a folder on the filesystem """
     def __init__(self, path, transform=None):
         super(CocoImages, self).__init__()
         self.path = path
         self.id_to_filename = self._find_images()
-        self.sorted_ids = sorted(self.id_to_filename.keys())  # used for deterministic iteration order
+        self.sorted_ids = sorted(self.id_to_filename.keys()) # TODO cahnge to list not needed  # used for deterministic iteration order
         print('found {} images in {}'.format(len(self), self.path))
         self.transform = transform
 
@@ -239,7 +259,7 @@ class CocoImages(data.Dataset):
         return len(self.sorted_ids)
 
 
-class Composite(data.Dataset):
+class Composite(torch.utils.data.Dataset):
     """ Dataset that is a composite of several Dataset objects. Useful for combining splits of a dataset. """
     def __init__(self, *datasets):
         self.datasets = datasets
