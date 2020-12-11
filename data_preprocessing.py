@@ -9,46 +9,30 @@ import torch
 import torch.utils.data
 
 # import config
-# import utils
-def path_for(train=False, val=False, test=False, question=False, answer=False):
-    task = 'OpenEnded'
-    dataset = 'mscoco'
-    qa_path = 'vqa'  # directory containing the question and annotation jsons
-    base_path = '/datashare'
-    assert train + val + test == 1
-    assert question + answer == 1
-    assert not (test and answer), 'loading answers from test split not supported'  # if you want to eval on test, you need to implement loading of a VQA Dataset without given answers yourself
-    if train:
-        split = 'train2014'
-    elif val:
-        split = 'val2014'
-    else:
-        split = 'test2015'
-    if question:
-        fmt = '{0}_{1}_{2}_questions.json'
-    else:
-        fmt = '{1}_{2}_annotations.json'
-    s = fmt.format(task, dataset, split)
-    s = os.path.join(base_path, s)
-    return os.path.join(qa_path, s)
+from utils import path_for
 
 
 def get_loader(train=False, val=False, test=False):
     """ Returns a data loader for the desired split """
     assert train + val + test == 1, 'need to set exactly one of {train, val, test} to True'
     print(path_for(train=train, val=val, test=test, question=True))
+    preprocessed_path = './resnet-14x14.h5'
+    vocab_path = './vocab.json'
     split = VQA(
         path_for(train=train, val=val, test=test, question=True),
         path_for(train=train, val=val, test=test, answer=True),
-        config.preprocessed_path,
+        preprocessed_path, vocabulary_path=vocab_path,
         answerable_only=train,
     )
+    batch_size = 128
+    data_workers = 8
+
     loader = torch.utils.data.DataLoader(
         split,
-        batch_size=config.batch_size,
+        batch_size=batch_size,
         shuffle=train,  # only shuffle the data in training
         pin_memory=True,
-        num_workers=config.data_workers,
+        num_workers=data_workers,
         collate_fn=collate_fn,
     )
     return loader

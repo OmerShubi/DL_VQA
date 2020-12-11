@@ -43,4 +43,4 @@ if __name__ == '__main__':
 
     img_loader = init_coco_loader(train_path, val_path)  # TODO is it okay both train and val?
     train_loader = data_preprocessing.get_loader(train=True)
-    # valid_loader = data_preprocessing.get_loader(val=True)
+    valid_loader = data_preprocessing.get_loader(val=True)
