@@ -183,13 +183,6 @@ _punctuation_with_a_space = re.compile(r'(?<= )([{0}])|([{0}])(?= )'.format(_pun
 
 
 
-periodStrip = re.compile("(?!<=\d)(\.)(?!\d)")
-commaStrip = re.compile("(\d)(\,)(\d)")
-punct = [';', r"/", '[', ']', '"', '{', '}',
-              '(', ')', '=', '+', '\\', '_', '-',
-              '>', '<', '@', '`', ',', '?', '!']
-
-
 def prepare_questions(questions_json):
     """
         Tokenize and normalize questions from a given question json in the usual VQA format.
@@ -214,20 +207,10 @@ def prepare_answers(answers_json):
     # [0]: http://visualqa.org/evaluation.html
     # [1]: https://github.com/VT-vision-lab/VQA/blob/3849b1eae04a0ffd83f56ad6f70ebd0767e09e0f/PythonEvaluationTools/vqaEvaluation/vqaEval.py#L96
     # https://github.com/GT-Vision-Lab/VQA/blob/3849b1eae04a0ffd83f56ad6f70ebd0767e09e0f/PythonEvaluationTools/vqaEvaluation/vqaEval.py#L96
-    def processPunctuation2(inText):
-        outText = inText
-        for p in punct:
-            if (p + ' ' in inText or ' ' + p in inText) or (re.search(commaStrip, inText) != None):
-                outText = outText.replace(p, '')
-            else:
-                outText = outText.replace(p, ' ')
-        outText = periodStrip.sub("", outText, re.UNICODE)
-        return outText
 
     def process_punctuation(s):
         # the original is somewhat broken, so things that look odd here might just be to mimic that behaviour
         # this version should be faster since we use re instead of repeated operations on str's
-        res2 = processPunctuation2(copy.deepcopy(s))
 
         if _punctuation.search(s) is None:
             return s
@@ -237,8 +220,7 @@ def prepare_answers(answers_json):
         s = _punctuation.sub(' ', s)
         s = _period_strip.sub('', s)
         res = s.strip()
-        if res != res2:
-            raise Exception("MISMATCHHHH")
+
         return res
 
 
