@@ -62,11 +62,10 @@ class Net(nn.Module):
         return self.buffer
 
 
-def main():
+def create_processed_images(data_base_path, train_imgs_path, val_imgs_path, save_path):
 
-    base_path = '/datashare'
-    train_path = os.path.join(base_path, 'train2014')  # directory of training images
-    val_path = os.path.join(base_path, 'val2014')  # directory of validation images
+    train_path = os.path.join(data_base_path, train_imgs_path)  # directory of training images
+    val_path = os.path.join(data_base_path, val_imgs_path)  # directory of validation images
 
 
     cudnn.benchmark = True
@@ -84,7 +83,7 @@ def main():
         output_size,
         output_size
     )
-    preprocessed_path = './resnet-14x14.h5'  # path where preprocessed features are saved to and loaded from
+    preprocessed_path = save_path  # path where preprocessed features are saved to and loaded from
 
     with h5py.File(preprocessed_path, libver='latest') as fd:
         features = fd.create_dataset('features', shape=features_shape, dtype='float16')
@@ -103,4 +102,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    create_processed_images()

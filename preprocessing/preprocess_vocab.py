@@ -1,4 +1,5 @@
 import json
+import os
 from collections import Counter
 import itertools
 
@@ -24,9 +25,9 @@ def extract_vocab(iterable, top_k=None, start=0):
     return vocab
 
 
-def main():
-    questions = utils.path_for(train=True, question=True)
-    answers = utils.path_for(train=True, answer=True)
+def create_vocab(data_base_path, data_paths, vocab_path):
+    questions = os.path.join(data_base_path, data_paths['questions'])
+    answers = os.path.join(data_base_path, data_paths['answers'])
 
     with open(questions, 'r') as fd:
         questions = json.load(fd)
@@ -46,11 +47,11 @@ def main():
         'question': question_vocab,
         'answer': answer_vocab,
     }
-    vocabulary_path = './vocab.json'  # path where the used vocabularies for question and answers are saved to  # TODO param
+    vocabulary_path = vocab_path  # path where the used vocabularies for question and answers are saved to  # TODO param
 
     with open(vocabulary_path, 'w') as fd:
         json.dump(vocabs, fd)
 
 
 if __name__ == '__main__':
-    main()
+    create_vocab()

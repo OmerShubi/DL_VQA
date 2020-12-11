@@ -113,29 +113,6 @@ def init(cfg: DictConfig) -> None:
     os.chdir(hydra.utils.get_original_cwd())
     validate_input(cfg)
 
-# TODO DELETE
-def path_for(train=False, val=False, test=False, question=False, answer=False):
-    task = 'OpenEnded'  # TODO param
-    dataset = 'mscoco'  # TODO param
-    qa_path = 'vqa'  # directory containing the question and annotation jsons
-    base_path = '/datashare'
-    assert train + val + test == 1
-    assert question + answer == 1
-    assert not (test and answer), 'loading answers from test split not supported'  # if you want to eval on test, you need to implement loading of a VQA_dataset Dataset without given answers yourself
-    if train:
-        split = 'train2014'
-    elif val:
-        split = 'val2014'
-    else:
-        split = 'test2015'
-    if question:
-        fmt = 'v2_{0}_{1}_{2}_questions.json'
-    else:
-        fmt = 'v2_{1}_{2}_annotations.json'
-    s = fmt.format(task, dataset, split)
-    s = os.path.join(base_path, s)
-    return os.path.join(qa_path, s)
-
 
 def collate_fn(batch):
     # put question lengths in descending order so that we can use packed sequences later

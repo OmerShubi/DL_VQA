@@ -2,6 +2,7 @@
 Main file
 We will run the whole program from here
 """
+import os
 
 import torch
 import hydra
@@ -31,16 +32,20 @@ def main(cfg: DictConfig) -> None:
 
     # Set seed for results reproduction
     main_utils.set_seed(cfg['main']['seed'])
-
-
-    images_to_h5 = False
-    if images_to_h5:
+    # TODO make sure works
+    processed_imgs_path = cfg['main']['paths']['processed_imgs']
+    if not os.path.exists(processed_imgs_path):
         # todo replace resnet?
-        preprocess_images.main()
+        preprocess_images.create_processed_images(data_base_path=cfg['main']['paths']['base_path'],
+                                                  train_imgs_path=cfg['main']['train_paths']['imgs'],
+                                                  val_imgs_path=cfg['main']['val_paths']['imgs'],
+                                                  save_path=processed_imgs_path)
 
-    q_and_a_to_vocab = False
-    if q_and_a_to_vocab:
-        preprocess_vocab.main()
+    # TODO make sure works
+    vocab_path = cfg['main']['paths']['vocab_path']
+    if not os.path.exists(vocab_path):
+        preprocess_vocab.create_vocab(data_paths=cfg['main']['train_paths'],
+                                      vocab_path=vocab_path)
 
     # TODO check if there is difference between v1 and v2, if yes check parsing of answers also
     # Load dataset
