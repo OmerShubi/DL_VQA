@@ -25,13 +25,12 @@ main:
     questions: 'v2_OpenEnded_mscoco_val2014_questions.json'
     answers: 'v2_mscoco_val2014_annotations.json'
     imgs: 'val2014'
-
 train:
-  num_epochs: 15
+  num_epochs: 1
   grad_clip: 0.25
   dropout: 0.2
   num_hid: 20
-  batch_size: 16
+  batch_size: 64
   save_model: False
   lr:
     lr_value: 1e-3

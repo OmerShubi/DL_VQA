@@ -10,7 +10,7 @@ import hydra
 from preprocessing import preprocess_images, preprocess_vocab
 from preprocessing.data_preprocessing import VQA_dataset
 from train import train
-from models.base_model import MyModel
+from models.base_model import Net
 from torch.utils.data import DataLoader
 from utils import main_utils, train_utils
 from utils.main_utils import collate_fn
@@ -35,7 +35,8 @@ def main(cfg: DictConfig) -> None:
     # TODO make sure works
     processed_imgs_path = cfg['main']['paths']['processed_imgs']
     if not os.path.exists(processed_imgs_path):
-        # todo replace resnet?
+        # todo replace resnet - https://github.com/shilrley6/Faster-R-CNN-with-model-pretrained-on-Visual-Genome
+        logger.write("Creating Processed Images")
         preprocess_images.create_processed_images(data_base_path=cfg['main']['paths']['base_path'],
                                                   train_imgs_path=cfg['main']['train_paths']['imgs'],
                                                   val_imgs_path=cfg['main']['val_paths']['imgs'],
@@ -44,11 +45,12 @@ def main(cfg: DictConfig) -> None:
     # TODO make sure works
     vocab_path = cfg['main']['paths']['vocab_path']
     if not os.path.exists(vocab_path):
+        logger.write("Creating Vocab")
         preprocess_vocab.create_vocab(data_paths=cfg['main']['train_paths'],
                                       vocab_path=vocab_path)
 
-    # TODO check if there is difference between v1 and v2, if yes check parsing of answers also
     # Load dataset
+    logger.write("Creating datasets")
     train_dataset = VQA_dataset(data_paths=cfg['main']['train_paths'],
                                 other_paths=cfg['main']['paths'],
                                 answerable_only=True)  # TODO answerable_only?
@@ -72,7 +74,8 @@ def main(cfg: DictConfig) -> None:
                             collate_fn=collate_fn)
 
     # Init model
-    model = MyModel(num_hid=cfg['train']['num_hid'], dropout=cfg['train']['dropout'])
+    # model = Net(num_hid=cfg['train']['num_hid'], dropout=cfg['train']['dropout'])
+    model = Net(train_loader.dataset.num_tokens)
 
     # TODO: Add gpus_to_use
     if cfg['main']['parallel']:
