@@ -8,6 +8,7 @@ import h5py
 import torch
 import torch.utils.data
 
+UNKOWN_TOKEN = 0
 
 class VQA_dataset(torch.utils.data.Dataset):
     """ VQA_dataset dataset, open-ended """
@@ -31,11 +32,12 @@ class VQA_dataset(torch.utils.data.Dataset):
         # vocab
         self.vocab = vocab_json
         self.question_token_to_index = self.vocab['question']
-        self.answer_token_to_index = self.vocab['answer']
+        self.answer_to_index = self.vocab['answer']
 
         # questions - Turn a question into a padded vector of vocab indices and a question length
         self.questions_list = list(prepare_questions(questions_json))
         self.questions = [self._encode_question(q) for q in self.questions_list]
+
         # answers - Turn an answer into a vector of counts of all possible answers
         answers = list(prepare_answers(answers_json))
         self.answers = [self._encode_answers(a) for a in answers]
@@ -89,7 +91,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         # TODO change to pytorch padding
         vec = torch.zeros(self.max_question_length).long()
         for i, token in enumerate(question):
-            index = self.question_token_to_index.get(token, 0)
+            index = self.question_token_to_index.get(token, UNKOWN_TOKEN)
             vec[i] = index
         return vec, len(question)
 
@@ -99,9 +101,9 @@ class VQA_dataset(torch.utils.data.Dataset):
         # answer vec will be a vector of answer counts to determine which answers will contribute to the loss.
         # this should be multiplied with 0.1 * negative log-likelihoods that a model produces and then summed up
         # to get the loss that is weighted by how many humans gave that answer
-        answer_vec = torch.zeros(len(self.answer_token_to_index))
+        answer_vec = torch.zeros(len(self.answer_to_index))
         for answer in answers:
-            index = self.answer_token_to_index.get(answer)
+            index = self.answer_to_index.get(answer)
             if index is not None:
                 answer_vec[index] += 1
         return answer_vec
@@ -139,15 +141,70 @@ class VQA_dataset(torch.utils.data.Dataset):
             return len(self.questions)
 
 
-# this is used for normalizing questions
-_special_chars = re.compile('[^a-z0-9 ]*')
+period_strip = re.compile("(?!<=\d)(\.)(?!\d)")
+comma_strip = re.compile("(\d)(\,)(\d)")
+punct = [';', r"/", '[', ']', '"', '{', '}',
+                '(', ')', '=', '+', '\\', '_', '-',
+                '>', '<', '@', '`', ',', '?', '!']
+contractions = {
+    "aint": "ain't", "arent": "aren't", "cant": "can't", "couldve":
+    "could've", "couldnt": "couldn't", "couldn'tve": "couldn't've",
+    "couldnt've": "couldn't've", "didnt": "didn't", "doesnt":
+    "doesn't", "dont": "don't", "hadnt": "hadn't", "hadnt've":
+    "hadn't've", "hadn'tve": "hadn't've", "hasnt": "hasn't", "havent":
+    "haven't", "hed": "he'd", "hed've": "he'd've", "he'dve":
+    "he'd've", "hes": "he's", "howd": "how'd", "howll": "how'll",
+    "hows": "how's", "Id've": "I'd've", "I'dve": "I'd've", "Im":
+    "I'm", "Ive": "I've", "isnt": "isn't", "itd": "it'd", "itd've":
+    "it'd've", "it'dve": "it'd've", "itll": "it'll", "let's": "let's",
+    "maam": "ma'am", "mightnt": "mightn't", "mightnt've":
+    "mightn't've", "mightn'tve": "mightn't've", "mightve": "might've",
+    "mustnt": "mustn't", "mustve": "must've", "neednt": "needn't",
+    "notve": "not've", "oclock": "o'clock", "oughtnt": "oughtn't",
+    "ow's'at": "'ow's'at", "'ows'at": "'ow's'at", "'ow'sat":
+    "'ow's'at", "shant": "shan't", "shed've": "she'd've", "she'dve":
+    "she'd've", "she's": "she's", "shouldve": "should've", "shouldnt":
+    "shouldn't", "shouldnt've": "shouldn't've", "shouldn'tve":
+    "shouldn't've", "somebody'd": "somebodyd", "somebodyd've":
+    "somebody'd've", "somebody'dve": "somebody'd've", "somebodyll":
+    "somebody'll", "somebodys": "somebody's", "someoned": "someone'd",
+    "someoned've": "someone'd've", "someone'dve": "someone'd've",
+    "someonell": "someone'll", "someones": "someone's", "somethingd":
+    "something'd", "somethingd've": "something'd've", "something'dve":
+    "something'd've", "somethingll": "something'll", "thats":
+    "that's", "thered": "there'd", "thered've": "there'd've",
+    "there'dve": "there'd've", "therere": "there're", "theres":
+    "there's", "theyd": "they'd", "theyd've": "they'd've", "they'dve":
+    "they'd've", "theyll": "they'll", "theyre": "they're", "theyve":
+    "they've", "twas": "'twas", "wasnt": "wasn't", "wed've":
+    "we'd've", "we'dve": "we'd've", "weve": "we've", "werent":
+    "weren't", "whatll": "what'll", "whatre": "what're", "whats":
+    "what's", "whatve": "what've", "whens": "when's", "whered":
+    "where'd", "wheres": "where's", "whereve": "where've", "whod":
+    "who'd", "whod've": "who'd've", "who'dve": "who'd've", "wholl":
+    "who'll", "whos": "who's", "whove": "who've", "whyll": "why'll",
+    "whyre": "why're", "whys": "why's", "wont": "won't", "wouldve":
+    "would've", "wouldnt": "wouldn't", "wouldnt've": "wouldn't've",
+    "wouldn'tve": "wouldn't've", "yall": "y'all", "yall'll":
+    "y'all'll", "y'allll": "y'all'll", "yall'd've": "y'all'd've",
+    "y'alld've": "y'all'd've", "y'all'dve": "y'all'd've", "youd":
+    "you'd", "youd've": "you'd've", "you'dve": "you'd've", "youll":
+    "you'll", "youre": "you're", "youve": "you've"
+}
 
-# these try to emulate the original normalization scheme for answers
-_period_strip = re.compile(r'(?!<=\d)(\.)(?!\d)')
-_comma_strip = re.compile(r'(\d)(,)(\d)')
-_punctuation_chars = re.escape(r';/[]"{}()=+\_-><@`,?!')
-_punctuation = re.compile(r'([{}])'.format(re.escape(_punctuation_chars)))
-_punctuation_with_a_space = re.compile(r'(?<= )([{0}])|([{0}])(?= )'.format(_punctuation_chars))
+manual_map = { 'none': '0',
+              'zero': '0',
+              'one': '1',
+              'two': '2',
+              'three': '3',
+              'four': '4',
+              'five': '5',
+              'six': '6',
+              'seven': '7',
+              'eight': '8',
+               'nine': '9',
+              'ten': '10'}
+articles = ['a', 'an', 'the']
 
 
 def prepare_questions(questions_json):
@@ -176,24 +233,39 @@ def prepare_answers(answers_json):
     # [1]: https://github.com/VT-vision-lab/VQA/blob/3849b1eae04a0ffd83f56ad6f70ebd0767e09e0f/PythonEvaluationTools/vqaEvaluation/vqaEval.py#L96
     # https://github.com/GT-Vision-Lab/VQA/blob/3849b1eae04a0ffd83f56ad6f70ebd0767e09e0f/PythonEvaluationTools/vqaEvaluation/vqaEval.py#L96
 
-
-    def process_punctuation(s):
-        # the original is somewhat broken, so things that look odd here might just be to mimic that behaviour
-        # this version should be faster since we use re instead of repeated operations on str's
-
-        if _punctuation.search(s) is None:
-            return s
-        s = _punctuation_with_a_space.sub('', s)
-        if re.search(_comma_strip, s) is not None:
-            s = s.replace(',', '')
-        s = _punctuation.sub(' ', s)
-        s = _period_strip.sub('', s)
-        res = s.strip()
-
-        return res
-
     for answer_list in answers:
-        yield list(map(process_punctuation, answer_list))
+        yield list(map(preprocess_answer, answer_list))
+
+def preprocess_answer(answer):
+    answer = process_digit_article(process_punctuation(answer))
+    answer = answer.replace(',', '')
+    return answer
+
+def process_punctuation(inText):
+    outText = inText
+    for p in punct:
+        if (p + ' ' in inText or ' ' + p in inText) \
+                or (re.search(comma_strip, inText) != None):
+            outText = outText.replace(p, '')
+        else:
+            outText = outText.replace(p, ' ')
+    outText = period_strip.sub("", outText, re.UNICODE)
+    return outText
+
+def process_digit_article(inText):
+    outText = []
+    tempText = inText.lower().split()
+    for word in tempText:
+        word = manual_map.setdefault(word, word)
+        if word not in articles:
+            outText.append(word)
+        else:
+            pass
+    for wordId, word in enumerate(outText):
+        if word in contractions:
+            outText[wordId] = contractions[word]
+    outText = ' '.join(outText)
+    return outText
 
 
 class CocoImages(torch.utils.data.Dataset):

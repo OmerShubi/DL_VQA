@@ -49,7 +49,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
                                                 step_size=train_params.lr_step_size,
                                                 gamma=train_params.lr_gamma)
 
-    log_softmax = nn.LogSoftmax().cuda() # TODO change
+    log_softmax = nn.LogSoftmax(dim=1).cuda() # TODO change
 
     for epoch in range(train_params.num_epochs):
         t = time.time()
@@ -63,10 +63,11 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
                 q_len = q_len.cuda()
 
             y_hat = model(v, q, q_len)
-            nll = -log_softmax(y_hat) # TODO change
-            loss = (nll * a / 10).sum(dim=1).mean() # TODO understand
-
-            # loss = nn.functional.binary_cross_entropy_with_logits(y_hat, y)
+            nll = -log_softmax(y_hat)
+            # (nll * a / 10) is loss in entries of correct answers, multiplied by proportion of # correct out of 10
+            # Sum is over all correct answers
+            # mean is over batch
+            loss = (nll * a / 10).sum(dim=1).mean()
 
             # Optimization step
             optimizer.zero_grad()
@@ -77,13 +78,8 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
             metrics['count_norm'] += 1
 
-            # NOTE! This function compute scores correctly only for one hot encoding representation of the logits
-            batch_score = batch_accuracy(y_hat.data, a.data).cpu() # TODO change
-            # batch_score = train_utils.compute_score_with_logits(y_hat, y.data).sum()
-            # print(batch_score)
-            # for a in batch_score: # TODO BAG
-            #     metrics['train_score'] += a.item()
-            metrics['train_score'] += torch.sum(batch_score).item()
+            batch_score = batch_accuracy(y_hat.data, a.data)
+            metrics['train_score'] += torch.sum(batch_score).cpu().item()
 
             metrics['train_loss'] += loss.item()  #* x.size(0)
 

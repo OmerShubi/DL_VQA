@@ -25,9 +25,21 @@ CFG_SCHEMA = {
             'imgs': str}
     },
     'train': {
+
+        'question_features': int,
+        'image_features': int,
+        'classifier_hidden_dim': int,
+        'attention_hidden_dim': int,
+        'glimpes': int,
+        'max_answers': int,
+        'embedding_features': int,
         'num_epochs': int,
         'grad_clip': float,
-        'dropout': float,
+        'dropouts': {
+            'text': float,
+            'attention': float,
+            'classifier': float,
+        },
         'num_hid': int,
         'batch_size': int,
         'save_model': bool,

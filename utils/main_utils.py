@@ -99,7 +99,7 @@ def _flatten_dict(d: MutableMapping, parent_key: str = '', sep: str = '_') -> Di
 def get_flatten_dict(cfg: DictConfig) -> Dict:
     """
     Returns flatten dictionary, given a config dictionary
-    :param cfg: config file
+    :param cfg: config filed
     :return: flatten dictionary
     """
     return _flatten_dict(cfg)

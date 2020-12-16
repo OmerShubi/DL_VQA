@@ -16,7 +16,7 @@ main:
     base_path: '/datashare'
     logs: 'logs/'
     processed_imgs: './resnet-14x14.h5'
-    vocab_path: './vocab.json'
+    vocab_path: './vocab_new.json'
   train_paths:
     questions: 'v2_OpenEnded_mscoco_train2014_questions.json'
     answers: 'v2_mscoco_train2014_annotations.json'
@@ -26,9 +26,19 @@ main:
     answers: 'v2_mscoco_val2014_annotations.json'
     imgs: 'val2014'
 train:
+  question_features: 1024
+  image_features: 2048 # TODO don't change without changing image feature NN
+  classifier_hidden_dim: 1024
+  attention_hidden_dim: 512
+  glimpes: 2
+  max_answers: 3000 # todo don't change without changing preprocess vocab
+  embedding_features: 300
+  dropouts:
+    text: 0.5
+    attention: 0.5
+    classifier: 0.5
   num_epochs: 1
   grad_clip: 0.25
-  dropout: 0.2
   num_hid: 20
   batch_size: 32
   save_model: False

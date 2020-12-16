@@ -38,7 +38,7 @@ def batch_accuracy(predicted, true):
     Finally, we can combine all cases together with:
         min(agreeing * 0.3, 1)
     '''
-    return (agreeing * 0.3).clamp(max=1)
+    return (agreeing / 3).clamp(max=1)
 
 def compute_score_with_logits(logits: Tensor, labels: Tensor) -> Tensor:
     """
