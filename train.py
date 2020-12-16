@@ -51,11 +51,11 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
 
     log_softmax = nn.LogSoftmax().cuda() # TODO change
 
-    for epoch in tqdm(range(train_params.num_epochs)):
+    for epoch in range(train_params.num_epochs):
         t = time.time()
         metrics = train_utils.get_zeroed_metrics_dict()
 
-        for i, (v, q, a, idx, q_len) in enumerate(train_loader):
+        for (v, q, a, idx, q_len) in tqdm(train_loader):
             if torch.cuda.is_available():
                 v = v.cuda()
                 q = q.cuda()
@@ -80,15 +80,16 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             # NOTE! This function compute scores correctly only for one hot encoding representation of the logits
             batch_score = batch_accuracy(y_hat.data, a.data).cpu() # TODO change
             # batch_score = train_utils.compute_score_with_logits(y_hat, y.data).sum()
-            for a in batch_score: # TODO BAG
-                metrics['train_score'] += a.item()
-            # metrics['train_score'] += batch_score.item()
+            # print(batch_score)
+            # for a in batch_score: # TODO BAG
+            #     metrics['train_score'] += a.item()
+            metrics['train_score'] += torch.sum(batch_score).item()
 
-            metrics['train_loss'] += loss.item() #* x.size(0)
+            metrics['train_loss'] += loss.item()  #* x.size(0)
 
             # Report model to tensorboard
-            if epoch == 0 and i == 0:
-                logger.report_graph(model, [v, q, q_len])
+            # if epoch == 0 and i == 0:
+                # logger.report_graph(model, [v, q, q_len])
 
         # Learning rate scheduler step
         scheduler.step()
@@ -137,7 +138,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
 
     log_softmax = nn.LogSoftmax().cuda()  # TODO change
 
-    for i, (v, q, a, idx, q_len) in tqdm(enumerate(dataloader)):
+    for (v, q, a, idx, q_len) in tqdm(dataloader):
         if torch.cuda.is_available():
             v = v.cuda()
             q = q.cuda()
@@ -150,7 +151,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
         loss += (nll * a / 10).sum(dim=1).mean()  # TODO understand
 
         # loss += nn.functional.binary_cross_entropy_with_logits(y_hat, y)
-        score += batch_accuracy(y_hat.data, a.data).cpu()  # TODO change
+        score += torch.sum(batch_accuracy(y_hat.data, a.data).cpu())  # TODO change
 
         # score += train_utils.compute_score_with_logits(y_hat, y).sum().item()
 

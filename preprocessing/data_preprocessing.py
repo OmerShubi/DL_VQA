@@ -176,6 +176,7 @@ def prepare_answers(answers_json):
     # [1]: https://github.com/VT-vision-lab/VQA/blob/3849b1eae04a0ffd83f56ad6f70ebd0767e09e0f/PythonEvaluationTools/vqaEvaluation/vqaEval.py#L96
     # https://github.com/GT-Vision-Lab/VQA/blob/3849b1eae04a0ffd83f56ad6f70ebd0767e09e0f/PythonEvaluationTools/vqaEvaluation/vqaEval.py#L96
 
+
     def process_punctuation(s):
         # the original is somewhat broken, so things that look odd here might just be to mimic that behaviour
         # this version should be faster since we use re instead of repeated operations on str's
