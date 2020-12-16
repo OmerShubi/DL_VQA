@@ -30,18 +30,18 @@ train:
   image_features: 2048 # TODO don't change without changing image feature NN
   classifier_hidden_dim: 1024
   attention_hidden_dim: 512
-  glimpes: 2
-  max_answers: 3000 # todo don't change without changing preprocess vocab
+  glimpses: 2
+  max_answers: 3000
   embedding_features: 300
   dropouts:
     text: 0.5
     attention: 0.5
     classifier: 0.5
-  num_epochs: 1
+  num_epochs: 10
   grad_clip: 0.25
   num_hid: 20
-  batch_size: 32
-  save_model: False
+  batch_size: 64
+  save_model: True
   lr:
     lr_value: 1e-3
     lr_decay: 15

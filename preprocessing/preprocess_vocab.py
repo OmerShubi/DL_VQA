@@ -25,7 +25,7 @@ def extract_vocab(iterable, top_k=None, start=0):
     return vocab
 
 
-def create_vocab(data_base_path, data_paths, vocab_path):
+def create_vocab(data_base_path, data_paths, vocab_path, max_answers=3000):
     questions = os.path.join(data_base_path, data_paths['questions'])
     answers = os.path.join(data_base_path, data_paths['answers'])
 
@@ -40,14 +40,13 @@ def create_vocab(data_base_path, data_paths, vocab_path):
 
     question_vocab = extract_vocab(questions, start=1)
 
-    max_answers = 3000  # TODO param
     answer_vocab = extract_vocab(answers, top_k=max_answers)
 
     vocabs = {
         'question': question_vocab,
         'answer': answer_vocab,
     }
-    vocabulary_path = vocab_path  # path where the used vocabularies for question and answers are saved to  # TODO param
+    vocabulary_path = vocab_path  # path where the used vocabularies for question and answers are saved to
 
     with open(vocabulary_path, 'w') as fd:
         json.dump(vocabs, fd)

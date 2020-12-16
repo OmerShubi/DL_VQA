@@ -25,12 +25,11 @@ CFG_SCHEMA = {
             'imgs': str}
     },
     'train': {
-
         'question_features': int,
         'image_features': int,
         'classifier_hidden_dim': int,
         'attention_hidden_dim': int,
-        'glimpes': int,
+        'glimpses': int,
         'max_answers': int,
         'embedding_features': int,
         'num_epochs': int,

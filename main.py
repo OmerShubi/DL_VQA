@@ -49,7 +49,8 @@ def main(cfg: DictConfig) -> None:
         logger.write("Creating Vocab")
         preprocess_vocab.create_vocab(data_base_path=cfg['main']['paths']['base_path'],
                                       data_paths=cfg['main']['train_paths'],
-                                      vocab_path=vocab_path)
+                                      vocab_path=vocab_path,
+                                      max_answers=cfg['train']['max_answers'])
 
     # Load dataset
     logger.write("Creating datasets")
