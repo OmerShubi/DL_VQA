@@ -66,15 +66,15 @@ def main(cfg: DictConfig) -> None:
                               batch_size=cfg['train']['batch_size'],
                               shuffle=True,
                               num_workers=cfg['main']['num_workers'],
-                              pin_memory=False,
-                              collate_fn=collate_fn)  # TODO need collate_fn??
+                              pin_memory=False,)
+                              # collate_fn=collate_fn)  # TODO need collate_fn??
 
     val_loader = DataLoader(dataset=val_dataset,
                             batch_size=cfg['train']['batch_size'],
                             shuffle=False,
                             num_workers=cfg['main']['num_workers'],
-                            pin_memory=False,
-                            collate_fn=collate_fn) # TODO need collate_fn??
+                            pin_memory=False,)
+                            # collate_fn=collate_fn) # TODO need collate_fn??
 
     # Init model
     # model = Net(num_hid=cfg['train']['num_hid'], dropout=cfg['train']['dropout'])

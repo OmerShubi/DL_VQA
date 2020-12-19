@@ -15,7 +15,9 @@ def batch_accuracy(predicted, true):
     _, predicted_index = predicted.max(dim=1, keepdim=True)
     # agreeing is tensor of number of people that said each predicted_index answer
     # todo find how to do without for loop
-    agreeing = torch.tensor([true[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
+    indices, values, size = true
+    true_sparse = torch.sparse_coo_tensor(indices,values,size)
+    agreeing = torch.tensor([true_sparse[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
     # agreeing = true.gather(dim=1, index=predicted_index)
     '''
     Acc needs to be averaged over all 10 choose 9 subsets of human answers.

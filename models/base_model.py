@@ -181,14 +181,6 @@ class GoogLeNet(nn.Module):
         out = self.dropout(out)
 
         return out
-        # out = self.avgpool(out)
-        # out = out.view(out.size(0), -1)
-        # out = self.linear(out)
-        # return self.logsoftmax(out)
-
-
-
-
 
 
 class Classifier(nn.Sequential):
@@ -230,7 +222,7 @@ class TextProcessor(nn.Module):
         embedded = self.embedding(q)
         embedded_drop = self.drop(embedded)
         tanhed = self.tanh(embedded_drop)
-        packed = pack_padded_sequence(tanhed, q_len, batch_first=True) # TODO understand padding and packed object
+        packed = pack_padded_sequence(tanhed, q_len, batch_first=True, enforce_sorted=False) # TODO understand padding and packed object
         _, (_, c) = self.lstm(packed)
         return c.squeeze(0)
 
