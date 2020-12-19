@@ -9,7 +9,7 @@ hydra:
 main:
   experiment_name_prefix: my_exp
   seed: 1
-  num_workers: 0
+  num_workers: 5
   parallel: False
   gpus_to_use: 1,2
   trains: False
