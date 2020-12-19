@@ -27,13 +27,13 @@ main:
     imgs: 'val2014'
 train:
   question_features: 1024
-  image_features: 2048 # TODO don't change without changing image feature NN
+  image_features: 110 # TODO make sure code can handle dim change
   classifier_hidden_dim: 1024
   attention_hidden_dim: 512
   glimpses: 2
   max_answers: 3000
   embedding_features: 300
-  image_size: 320 # scale shorter end of image to this size and centre crop
+  image_size: 32 # scale shorter end of image to this size and centre crop
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
   dropouts:
     text: 0.5
@@ -42,7 +42,7 @@ train:
   num_epochs: 10
   grad_clip: 0.25
   num_hid: 20
-  batch_size: 64
+  batch_size: 2
   save_model: True
   lr:
     lr_value: 1e-3

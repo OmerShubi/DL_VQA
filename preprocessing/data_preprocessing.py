@@ -8,50 +8,56 @@ import h5py
 import torch
 import torch.utils.data
 import torchvision.transforms as transforms
-
+import numpy as np
 UNKOWN_TOKEN = 0
 
 
 class VQA_dataset(torch.utils.data.Dataset):
     """ VQA_dataset dataset, open-ended """
 
-    def __init__(self, data_paths, other_paths, image_size, central_fraction, answerable_only=False):
+    def __init__(self, data_paths, other_paths, image_size, central_fraction, logger, answerable_only=False):
         super(VQA_dataset, self).__init__()
         base_path = other_paths['base_path']
         questions_path = os.path.join(base_path, data_paths['questions'])
         answers_path = os.path.join(base_path, data_paths['answers'])
         vocabulary_path = other_paths['vocab_path']
         self.image_path = os.path.join(base_path, data_paths['imgs'])
-
+        logger.write("Opening files")
         with open(questions_path, 'r') as fd:
             questions_json = json.load(fd)
         with open(answers_path, 'r') as fd:
             answers_json = json.load(fd)
         with open(vocabulary_path, 'r') as fd:
             vocab_json = json.load(fd)
-        self._check_integrity(questions_json, answers_json)
+        logger.write("Checking integrity")
 
+        self._check_integrity(questions_json, answers_json)
         # vocab
         self.vocab = vocab_json
         self.question_token_to_index = self.vocab['question']
         self.answer_to_index = self.vocab['answer']
 
+        logger.write("preparing and encoding questions")
+
         # questions - Turn a question into a padded vector of vocab indices and a question length
         self.questions_list = list(prepare_questions(questions_json))
         self.questions = [self._encode_question(q) for q in self.questions_list]
 
+        logger.write("preparing and encoding answers")
         # answers - Turn an answer into a vector of counts of all possible answers
-        answers = list(prepare_answers(answers_json))
-        self.answers = [self._encode_answers(a) for a in answers]
+        self.answers = [self._encode_answers(a) for a in prepare_answers(answers_json)]
 
+        logger.write("indexing images")
         # imgs
         self.transform = self._get_transformations(image_size, central_fraction)
         self.coco_ids = [q['image_id'] for q in questions_json['questions']]
         self.coco_id_to_filename = self._find_images()
 
+
         # only use questions that have at least one answer?
         self.answerable_only = answerable_only
         if self.answerable_only:
+            logger.write("answerable_only")
             self.answerable = self._find_answerable()
 
     @property
@@ -83,7 +89,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         """ Create a list of indices into questions that will have at least one answer that is in the vocab """
         answerable = []
         for i, answers in enumerate(self.answers):
-            answer_has_index = len(answers.nonzero()) > 0
+            answer_has_index = answers._nnz() > 0
             # store the indices of anything that is answerable
             if answer_has_index:
                 answerable.append(i)
@@ -100,16 +106,17 @@ class VQA_dataset(torch.utils.data.Dataset):
 
     def _encode_answers(self, answers):
         """ Turn an answer into a vector """
-        # TODO change to sparse vector!
         # answer vec will be a vector of answer counts to determine which answers will contribute to the loss.
         # this should be multiplied with 0.1 * negative log-likelihoods that a model produces and then summed up
         # to get the loss that is weighted by how many humans gave that answer
-        answer_vec = torch.zeros(len(self.answer_to_index))
-        for answer in answers:
-            index = self.answer_to_index.get(answer)
-            if index is not None:
-                answer_vec[index] += 1
-        return answer_vec
+
+        # get indices of answers that have an id in answer vocab
+        answers_with_id_from_vocab = [self.answer_to_index.get(answer) for answer in answers if self.answer_to_index.get(answer) is not None]
+
+        # get unique indices and how many counts of each
+        unique_indices, counts = np.unique(answers_with_id_from_vocab, return_counts=True)
+
+        return torch.sparse_coo_tensor(indices=torch.tensor([unique_indices]), values=torch.tensor(counts), size=(len(self.answer_to_index),))
 
     def _find_images(self):
         id_to_filename = {}

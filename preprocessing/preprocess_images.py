@@ -8,6 +8,7 @@ import torch.backends.cudnn as cudnn
 import torch.utils.data
 import torchvision.models as models
 from tqdm import tqdm
+from PIL import Image
 
 from preprocessing import data_preprocessing
 import torchvision.transforms as transforms
@@ -35,8 +36,8 @@ def init_coco_loader(*paths):
     data_workers = 8  # TODO param
 
     transformations = get_transformations(image_size, central_fraction)
-    datasets = [data_preprocessing.CocoImages(path, transform=transformations) for path in paths]
-    img_dataset = data_preprocessing.Composite(*datasets)
+    datasets = [CocoImages(path, transform=transformations) for path in paths]
+    img_dataset = Composite(*datasets)
 
     img_data_loader = torch.utils.data.DataLoader(
         img_dataset,
@@ -100,5 +101,64 @@ def create_processed_images(data_base_path, train_imgs_path, val_imgs_path, save
                 i = j
 
 
+
+class CocoImages(torch.utils.data.Dataset):
+    def __init__(self, path, transform=None):
+        """
+        Dataset for MSCOCO images located in a folder on the filesystem
+
+        :param path: path to image dir
+        :param transform: transforms.Compose, transformations to apply
+        """
+        super(CocoImages, self).__init__()
+        self.path = path
+        self.id_to_filename = self._find_images()
+        self.sorted_ids = sorted(self.id_to_filename.keys())  # used for deterministic iteration order
+        print('found {} images in {}'.format(len(self), self.path))
+        self.transform = transform
+
+    def _find_images(self):
+        id_to_filename = {}
+        for filename in os.listdir(self.path):
+            if not filename.endswith('.jpg'):
+                continue
+            id_and_extension = filename.split('_')[-1]
+            id = int(id_and_extension.split('.')[0])
+            id_to_filename[id] = filename
+        return id_to_filename
+
+    def __getitem__(self, item):
+        id = self.sorted_ids[item]
+        path = os.path.join(self.path, self.id_to_filename[id])
+        img = Image.open(path).convert('RGB')
+
+        if self.transform is not None:
+            img = self.transform(img)
+        return id, img
+
+    def __len__(self):
+        return len(self.sorted_ids)
+
+
+class Composite(torch.utils.data.Dataset):
+    """ Dataset that is a composite of several Dataset objects. Useful for combining splits of a dataset. """
+
+    def __init__(self, *datasets):
+        self.datasets = datasets
+
+    def __getitem__(self, item):
+        current = self.datasets[0]
+        for d in self.datasets:
+            if item < len(d):
+                return d[item]
+            item -= len(d)
+        else:
+            raise IndexError('Index too large for composite dataset')
+
+    def __len__(self):
+        return sum(map(len, self.datasets))
+
+
+
 if __name__ == '__main__':
-    create_processed_images('/datashare','train2014','val2014','./resnet18_7.h5')
+    create_processed_images('/datashare','train2014','val2014','./resnet18_13.h5')

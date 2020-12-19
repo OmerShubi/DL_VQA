@@ -14,6 +14,15 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 import torchvision.models as models # TODO delete
 
+# TODO speed
+"""
+batch size
+number parameters
+model efficiency implementation
+other code parts
+"""
+
+
 class Net(nn.Module):
     """ Re-implementation of ``Show, Ask, Attend, and Answer: A Strong Baseline For Visual Question Answering'' [0]
 
@@ -46,7 +55,8 @@ class Net(nn.Module):
             out_features=cfg['max_answers'],
             drop=dropouts['classifier'],
         )
-        self.image = Image()
+        # self.image = Image()
+        self.image = GoogLeNet()
 
 
         # xavier_uniform_ init for linear and conv layers
@@ -69,6 +79,7 @@ class Net(nn.Module):
 
         return answer
 
+
 class Image(nn.Module):
     def __init__(self):
         super(Image, self).__init__()
@@ -82,6 +93,103 @@ class Image(nn.Module):
     def forward(self, x):
         self.model(x)
         return self.buffer
+
+
+class inception(nn.Module):
+    def __init__(self, num_of_planes, nof1x1, nof3x3_1, nof3x3_out, nof5x5_1, nof5x5_out, pool_planes):
+        super(inception, self).__init__()
+        # 1x1 conv branch
+        self.b1x1 = nn.Sequential(
+            nn.Conv2d(num_of_planes, nof1x1, kernel_size=1),
+            nn.BatchNorm2d(nof1x1),
+            nn.ReLU(True),
+        )
+        # 1x1 conv -> 3x3 conv branch
+        self.b1x3 = nn.Sequential(
+            nn.Conv2d(num_of_planes, nof3x3_1, kernel_size=1),
+            nn.BatchNorm2d(nof3x3_1),
+            nn.ReLU(True),
+            nn.Conv2d(nof3x3_1, nof3x3_out, kernel_size=3, padding=1),
+            nn.BatchNorm2d(nof3x3_out),
+            nn.ReLU(True),
+        )
+
+        # 1x1 conv -> 5x5 conv branch
+        self.b1x5 = nn.Sequential(
+            nn.Conv2d(num_of_planes, nof5x5_1, kernel_size=1),
+            nn.BatchNorm2d(nof5x5_1),
+            nn.ReLU(True),
+            nn.Conv2d(nof5x5_1, nof5x5_out, kernel_size=3, padding=1),
+            nn.BatchNorm2d(nof5x5_out),
+            nn.ReLU(True),
+        )
+
+        # 3x3 pool -> 1x1 conv branch
+        self.b3x1 = nn.Sequential(
+            nn.MaxPool2d(3, stride=1, padding=1),
+            nn.Conv2d(num_of_planes, pool_planes, kernel_size=1),
+            nn.BatchNorm2d(pool_planes),
+            nn.ReLU(True),
+        )
+
+    def forward(self, a):
+        b1 = self.b1x1(a)
+        b2 = self.b1x3(a)
+        b3 = self.b1x5(a)
+        b4 = self.b3x1(a)
+        return torch.cat([b1, b2, b3, b4], 1)           # concatenating the convolutions' branches
+
+
+# the convolutional level
+class GoogLeNet(nn.Module):
+    def __init__(self):
+        super(GoogLeNet, self).__init__()
+        self.first_layer = nn.Sequential(
+            nn.Conv2d(3, 30, kernel_size=3, padding=1),     # using 30 filters 3x3
+            nn.BatchNorm2d(30),
+            nn.ReLU(True),
+        )
+
+        self.a3 = inception(30, 10,  4, 12, 4, 8, 8)
+        self.b3 = inception(38, 14,  6, 16, 4, 10, 10)
+
+        self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
+
+        self.a4 = inception(50, 20,  8, 20, 4, 12, 12)
+        self.b4 = inception(64, 22,  9, 24, 4, 14, 16)
+
+        self.a5 = inception(76, 26,  12, 28, 4, 18, 18)
+        self.b5 = inception(90, 34,  16, 36, 6, 20, 20)
+
+        self.avgpool = nn.AvgPool2d(8, stride=1)
+        self.dropout = nn.Dropout(p=0.3)
+        self.linear = nn.Sequential(
+            nn.Linear(110, 10))
+
+        self.logsoftmax = nn.LogSoftmax()
+
+    def forward(self, x):
+        out = self.first_layer(x)
+        out = self.a3(out)
+        out = self.b3(out)
+        out = self.maxpool(out)
+        out = self.a4(out)
+        out = self.b4(out)
+        out = self.maxpool(out)
+        out = self.a5(out)
+        out = self.b5(out)
+        out = self.dropout(out)
+
+        return out
+        # out = self.avgpool(out)
+        # out = out.view(out.size(0), -1)
+        # out = self.linear(out)
+        # return self.logsoftmax(out)
+
+
+
+
+
 
 class Classifier(nn.Sequential):
     def __init__(self, in_features, mid_features, out_features, drop=0.0):

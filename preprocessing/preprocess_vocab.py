@@ -14,6 +14,7 @@ def extract_vocab(iterable, top_k=None, start=0):
     # TODO change to pytorch Vocab
     all_tokens = itertools.chain.from_iterable(iterable)
     counter = Counter(all_tokens)
+    print(len(counter))
     if top_k:
         most_common = counter.most_common(top_k)
         most_common = (t for t, c in most_common)

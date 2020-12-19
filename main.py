@@ -45,17 +45,21 @@ def main(cfg: DictConfig) -> None:
 
     # Load dataset
     logger.write("Creating datasets")
-    train_dataset = VQA_dataset(data_paths=cfg['main']['train_paths'],
-                                other_paths=cfg['main']['paths'],
-                                image_size=cfg['train']['image_size'],
-                                central_fraction=cfg['train']['central_fraction'],
-                                answerable_only=True)
+    # train_dataset = VQA_dataset(data_paths=cfg['main']['train_paths'],
+    #                             other_paths=cfg['main']['paths'],
+    #                             image_size=cfg['train']['image_size'],
+    #                             central_fraction=cfg['train']['central_fraction'],
+    #                             logger=logger,
+    #                             answerable_only=True)
 
     val_dataset = VQA_dataset(data_paths=cfg['main']['val_paths'],
                               other_paths=cfg['main']['paths'],
                               image_size=cfg['train']['image_size'],
                               central_fraction=cfg['train']['central_fraction'],
+                              logger=logger,
                               answerable_only=False)
+
+    train_dataset = val_dataset # TODO dont forget
 
     train_loader = DataLoader(dataset=train_dataset,
                               batch_size=cfg['train']['batch_size'],

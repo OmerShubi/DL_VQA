@@ -61,14 +61,18 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
                 q = q.cuda()
                 a = a.cuda()
                 q_len = q_len.cuda()
+                # todo make sure requires_grad is correct
 
             y_hat = model(v, q, q_len)
             nll = -log_softmax(y_hat)
             # (nll * a / 10) is loss in entries of correct answers, multiplied by proportion of # correct out of 10
             # Sum is over all correct answers
             # mean is over batch
+            # nll[range(batch_size), a.indices()]*a.values
+            # dl_dz2[range(batch_size), y] -= 1  # [BATCH_SIZE, outputSize]
+            # a[range(2), torch.tensor([[0,1],[0,2]]).t()].t()
             loss = (nll * a / 10).sum(dim=1).mean()
-
+            # nll[a]
             # Optimization step
             optimizer.zero_grad()
             loss.backward()
