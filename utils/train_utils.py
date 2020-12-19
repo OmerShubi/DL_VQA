@@ -18,7 +18,7 @@ def batch_accuracy(predicted, true):
     indices, values, size = true
     indices_nonzero = indices.nonzero().t()
     true_sparse = torch.sparse_coo_tensor(indices_nonzero, values[indices_nonzero.cpu().numpy()], size)
-    agreeing = torch.tensor([true_sparse[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
+    agreeing = torch.tensor([true_sparse[batch_index, index.item()+1] for batch_index, index in enumerate(predicted_index)])
     """
     agreeing = []
     for index in predicted_index:

@@ -20,6 +20,7 @@ from omegaconf import DictConfig, OmegaConf
 torch.backends.cudnn.benchmark = True
 
 
+
 @hydra.main(config_path="config", config_name='config')
 def main(cfg: DictConfig) -> None:
     """

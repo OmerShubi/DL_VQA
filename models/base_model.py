@@ -14,12 +14,15 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 import torchvision.models as models # TODO delete
 
-# TODO speed
+
+# TODO action item - speed
 """
-batch size
-number parameters
-model efficiency implementation
-other code parts
+preprocess images beforehand. Save to file. If change image params-->rerun preprocessing.
+batch size - increase till memory crash
+Go over layers, number parameters in model
+model efficiency implementation - look at 1. for loops 2. Not sparse? such as max_question_length
+other code parts such as torch.backends.cudnn.benchmark = True
+
 """
 
 
@@ -55,7 +58,6 @@ class Net(nn.Module):
             out_features=cfg['max_answers'],
             drop=dropouts['classifier'],
         )
-        # self.image = Image()
         self.image = GoogLeNet()
 
 
@@ -78,21 +80,6 @@ class Net(nn.Module):
         answer = self.classifier(combined)
 
         return answer
-
-
-class Image(nn.Module):
-    def __init__(self):
-        super(Image, self).__init__()
-
-        self.model = models.resnet152(pretrained=False)
-
-        def save_output(module, input, output):
-            self.buffer = output
-        self.model.layer4.register_forward_hook(save_output)
-
-    def forward(self, x):
-        self.model(x)
-        return self.buffer
 
 
 class inception(nn.Module):
@@ -160,13 +147,8 @@ class GoogLeNet(nn.Module):
 
         self.a5 = inception(76, 26,  12, 28, 4, 18, 18)
         self.b5 = inception(90, 34,  16, 36, 6, 20, 20)
-
-        self.avgpool = nn.AvgPool2d(8, stride=1)
         self.dropout = nn.Dropout(p=0.3)
-        self.linear = nn.Sequential(
-            nn.Linear(110, 10))
 
-        self.logsoftmax = nn.LogSoftmax()
 
     def forward(self, x):
         out = self.first_layer(x)

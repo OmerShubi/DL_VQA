@@ -161,7 +161,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         a_indices = self.answer_indices[item]
         a_values = self.answer_values[item]
         a_length = self.answer_lengths[item]
-
+        # TODO preprocess images beforehand
         img_file_name = self.coco_id_to_filename[self.coco_ids[item]]
         path = os.path.join(self.image_path, img_file_name)
         v = Image.open(path).convert('RGB')
