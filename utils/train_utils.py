@@ -11,8 +11,12 @@ from omegaconf import DictConfig
 
 def batch_accuracy(predicted, true):
     """ Compute the accuracies for a batch of predictions and answers """
+    #  predicted_index is tensor of batch X index of highest predicted value
     _, predicted_index = predicted.max(dim=1, keepdim=True)
-    agreeing = true.gather(dim=1, index=predicted_index)
+    # agreeing is tensor of number of people that said each predicted_index answer
+    # todo find how to do without for loop
+    agreeing = torch.tensor([true[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
+    # agreeing = true.gather(dim=1, index=predicted_index)
     '''
     Acc needs to be averaged over all 10 choose 9 subsets of human answers.
     While we could just use a loop, surely this can be done more efficiently (and indeed, it can).
@@ -38,7 +42,8 @@ def batch_accuracy(predicted, true):
     Finally, we can combine all cases together with:
         min(agreeing * 0.3, 1)
     '''
-    return (agreeing / 3).clamp(max=1)
+    return (agreeing * 0.3).clamp(max=1)
+
 
 def compute_score_with_logits(logits: Tensor, labels: Tensor) -> Tensor:
     """

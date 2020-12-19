@@ -44,7 +44,7 @@ def main(cfg: DictConfig) -> None:
                                       max_answers=cfg['train']['max_answers'])
 
     # Load dataset
-    logger.write("Creating datasets")
+    logger.write("Creating train dataset")
     # train_dataset = VQA_dataset(data_paths=cfg['main']['train_paths'],
     #                             other_paths=cfg['main']['paths'],
     #                             image_size=cfg['train']['image_size'],
@@ -52,6 +52,7 @@ def main(cfg: DictConfig) -> None:
     #                             logger=logger,
     #                             answerable_only=True)
 
+    logger.write("Creating validation dataset")
     val_dataset = VQA_dataset(data_paths=cfg['main']['val_paths'],
                               other_paths=cfg['main']['paths'],
                               image_size=cfg['train']['image_size'],
@@ -59,20 +60,20 @@ def main(cfg: DictConfig) -> None:
                               logger=logger,
                               answerable_only=False)
 
-    train_dataset = val_dataset # TODO dont forget
+    train_dataset = val_dataset  # TODO dont forget
 
     train_loader = DataLoader(dataset=train_dataset,
                               batch_size=cfg['train']['batch_size'],
                               shuffle=True,
                               num_workers=cfg['main']['num_workers'],
-                              pin_memory=True,
+                              pin_memory=False,
                               collate_fn=collate_fn)  # TODO need collate_fn??
 
     val_loader = DataLoader(dataset=val_dataset,
                             batch_size=cfg['train']['batch_size'],
                             shuffle=False,
                             num_workers=cfg['main']['num_workers'],
-                            pin_memory=True,
+                            pin_memory=False,
                             collate_fn=collate_fn) # TODO need collate_fn??
 
     # Init model

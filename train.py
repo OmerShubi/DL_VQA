@@ -68,10 +68,12 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             # (nll * a / 10) is loss in entries of correct answers, multiplied by proportion of # correct out of 10
             # Sum is over all correct answers
             # mean is over batch
-            # nll[range(batch_size), a.indices()]*a.values
-            # dl_dz2[range(batch_size), y] -= 1  # [BATCH_SIZE, outputSize]
-            # a[range(2), torch.tensor([[0,1],[0,2]]).t()].t()
-            loss = (nll * a / 10).sum(dim=1).mean()
+
+            a_indices = a.coalesce().indices().cpu().numpy()
+            a_values = a.coalesce().values()
+            batch_size = y_hat.shape[0]
+            loss = (nll[a_indices] * (a_values / 10.0)).sum() / batch_size
+            # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
             # nll[a]
             # Optimization step
             optimizer.zero_grad()
@@ -148,7 +150,11 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
         y_hat = model(v, q, q_len)
 
         nll = -log_softmax(y_hat)
-        loss += (nll * a / 10).sum(dim=1).mean()
+        a_indices = a.coalesce().indices().cpu().numpy()
+        a_values = a.coalesce().values()
+        batch_size = y_hat.shape[0]
+        loss = (nll[a_indices] * (a_values / 10.0)).sum() / batch_size
+        # loss += (nll * a.to_dense() / 10).sum(dim=1).mean()
 
         score += torch.sum(batch_accuracy(y_hat.data, a.data).cpu())
 
