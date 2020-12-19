@@ -34,7 +34,7 @@ train:
   glimpses: 2
   max_answers: 3000
   embedding_features: 300
-  image_size: 32 # scale shorter end of image to this size and centre crop
+  image_size: 32 # TODO increase!!! # scale shorter end of image to this size and centre crop
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
   dropouts:
     text: 0.5

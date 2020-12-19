@@ -51,7 +51,3 @@ def create_vocab(data_base_path, data_paths, vocab_path, max_answers=3000):
 
     with open(vocabulary_path, 'w') as fd:
         json.dump(vocabs, fd)
-
-
-if __name__ == '__main__':
-    create_vocab()

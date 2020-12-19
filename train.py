@@ -171,3 +171,29 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
     score *= 100
 
     return score, loss
+
+# TODO merge duplicate code from train and evaluate
+# def run_batch(model, v, q, a_indices, a_values, a_length, idx, q_len):
+#     if torch.cuda.is_available():
+#         v = v.cuda()
+#         q = q.cuda()
+#         a_values = a_values.cuda()
+#         q_len = q_len.cuda()
+#
+#     y_hat = model(v, q, q_len)
+#
+#     nll = -log_softmax(y_hat)
+#     # a_indices = a.coalesce().indices().cpu().numpy()
+#     # a_values = a.coalesce().values()
+#     batch_size = y_hat.shape[0]
+#     batch_indices = []  # TODO cleaner way
+#     for i in range(batch_size):
+#         batch_indices.extend([i] * 10)
+#         # a_indices = a.coalesce().indices().cpu().numpy()
+#     # a_values = a.coalesce().values()
+#
+#     loss = (nll[a_indices.flatten().cpu().numpy()] * (a_values.flatten() / 10.0)).sum() / batch_size
+#     # loss += (nll * a.to_dense() / 10).sum(dim=1).mean()
+#
+#     score = torch.sum(batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers))).cpu())
+#     return loss, score

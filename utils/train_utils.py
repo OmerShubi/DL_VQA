@@ -16,7 +16,8 @@ def batch_accuracy(predicted, true):
     # agreeing is tensor of number of people that said each predicted_index answer
     # todo find how to do without for loop
     indices, values, size = true
-    true_sparse = torch.sparse_coo_tensor(indices.nonzero(), values[indices.nonzero()], size)
+    indices_nonzero = indices.nonzero().t()
+    true_sparse = torch.sparse_coo_tensor(indices_nonzero, values[indices_nonzero.cpu().numpy()], size)
     agreeing = torch.tensor([true_sparse[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
     """
     agreeing = []

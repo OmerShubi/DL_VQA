@@ -7,7 +7,7 @@ import os
 import torch
 import hydra
 
-from preprocessing import preprocess_images, preprocess_vocab
+from preprocessing import preprocess_vocab
 from preprocessing.data_preprocessing import VQA_dataset
 from train import train
 from models.base_model import Net
