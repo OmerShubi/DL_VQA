@@ -55,7 +55,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
         t = time.time()
         metrics = train_utils.get_zeroed_metrics_dict()
 
-        for (v, q, a_indices, a_values, a_size, idx, q_len) in tqdm(train_loader):
+        for (v, q, a_indices, a_values, a_length, idx, q_len) in tqdm(train_loader):
             if torch.cuda.is_available():
                 v = v.cuda()
                 q = q.cuda()
@@ -72,6 +72,8 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             # a_indices = a.coalesce().indices().cpu().numpy()
             # a_values = a.coalesce().values()
             batch_size = y_hat.shape[0]
+            a_indices=a_indices[:a_length]
+            a_values=a_values[:a_length]
             loss = (nll[a_indices] * (a_values / 10.0)).sum() / batch_size
             # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
             # nll[a]
@@ -84,7 +86,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
             metrics['count_norm'] += 1
 
-            batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, a_size))  # TODO make sure calculation is correct according to Itai.
+            batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, a_length))  # TODO make sure calculation is correct according to Itai.
             metrics['train_score'] += torch.sum(batch_score).cpu().item()
 
             metrics['train_loss'] += loss.item()  #* x.size(0)
@@ -140,7 +142,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
 
     log_softmax = nn.LogSoftmax(dim=1).cuda()
 
-    for (v, q, a_indices, a_values, a_size, idx, q_len) in tqdm(dataloader):
+    for (v, q, a_indices, a_values, a_length, idx, q_len) in tqdm(dataloader):
         if torch.cuda.is_available():
             v = v.cuda()
             q = q.cuda()
@@ -153,10 +155,12 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
         # a_indices = a.coalesce().indices().cpu().numpy()
         # a_values = a.coalesce().values()
         batch_size = y_hat.shape[0]
+        a_indices = a_indices[:a_length]
+        a_values = a_values[:a_length]
         loss = (nll[a_indices] * (a_values / 10.0)).sum() / batch_size
         # loss += (nll * a.to_dense() / 10).sum(dim=1).mean()
 
-        score += torch.sum(batch_accuracy(y_hat.data, (a_indices, a_values, a_size)).cpu())
+        score += torch.sum(batch_accuracy(y_hat.data, (a_indices, a_values, a_length)).cpu())
 
     loss /= len(dataloader.dataset)
     score /= len(dataloader.dataset)

@@ -48,7 +48,19 @@ class VQA_dataset(torch.utils.data.Dataset):
 
         logger.write("preparing and encoding answers")
         # answers - Turn an answer into a vector of counts of all possible answers
-        self.answers = [self._encode_answers(a) for a in prepare_answers(answers_json)]
+        # self.answers = [self._encode_answers(a) for a in prepare_answers(answers_json)]
+
+        self.answer_indices = []
+        self.answer_values = []
+        self.answer_lengths = []
+        for a in prepare_answers(answers_json):
+            index, values, answer_length = self._encode_answers(a)
+            self.answer_indices.append(index)
+            self.answer_values.append(values)
+            self.answer_lengths.append(answer_length)
+
+        self.answer_indices = torch.nn.utils.rnn.pad_sequence(self.answer_indices, batch_first=True)
+        self.answer_values = torch.nn.utils.rnn.pad_sequence(self.answer_values, batch_first=True)
 
         logger.write("indexing images")
         # imgs
@@ -91,10 +103,9 @@ class VQA_dataset(torch.utils.data.Dataset):
     def _find_answerable(self):
         """ Create a list of indices into questions that will have at least one answer that is in the vocab """
         answerable = []
-        for i, answers in enumerate(self.answers):
-            answer_has_index = len(answers.indices) > 0
+        for i, answer_length in enumerate(self.answer_lengths):
             # store the indices of anything that is answerable
-            if answer_has_index:
+            if answer_length > 0:
                 answerable.append(i)
         return answerable
 
@@ -119,7 +130,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         # get unique indices and how many counts of each
         unique_indices, counts = np.unique(answers_with_id_from_vocab, return_counts=True)
         # return torch.sparse_coo_tensor(indices=torch.tensor([unique_indices]), values=torch.tensor(counts), size=(len(self.answer_to_index),))
-        return self.semi_dense(indices=unique_indices, values=torch.tensor(counts), size=(len(self.answer_to_index),))
+        return self.semi_dense(indices=unique_indices, values=torch.tensor(counts), size=len(unique_indices))
 
 
     def _find_images(self):
@@ -147,7 +158,9 @@ class VQA_dataset(torch.utils.data.Dataset):
             item = self.answerable[item]
 
         q, q_length = self.questions[item]
-        a = self.answers[item]
+        a_indices = self.answer_indices[item]
+        a_values = self.answer_values[item]
+        a_length = self.answer_lengths[item]
 
         img_file_name = self.coco_id_to_filename[self.coco_ids[item]]
         path = os.path.join(self.image_path, img_file_name)
@@ -159,7 +172,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         # since batches are re-ordered for PackedSequence's, the original question order is lost
         # we return `item` so that the order of (v, q, a) triples can be restored if desired
         # without shuffling in the dataloader, these will be in the order that they appear in the q and a json's.
-        return v, q, a.indices, a.values, a.size, item, q_length
+        return v, q, a_indices, a_values, a_length, item, q_length
 
     def __len__(self):
         if self.answerable_only:
