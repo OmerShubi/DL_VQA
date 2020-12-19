@@ -15,7 +15,7 @@ UNKOWN_TOKEN = 0
 class VQA_dataset(torch.utils.data.Dataset):
     """ VQA_dataset dataset, open-ended """
 
-    def __init__(self, data_paths, other_paths, answerable_only=False):
+    def __init__(self, data_paths, other_paths, image_size, central_fraction, answerable_only=False):
         super(VQA_dataset, self).__init__()
         base_path = other_paths['base_path']
         questions_path = os.path.join(base_path, data_paths['questions'])
@@ -45,8 +45,6 @@ class VQA_dataset(torch.utils.data.Dataset):
         self.answers = [self._encode_answers(a) for a in answers]
 
         # imgs
-        image_size = 320  # scale shorter end of image to this size and centre crop  # TODO param
-        central_fraction = 0.875  # only take this much of the centre when scaling and centre cropping  # TODO param
         self.transform = self._get_transformations(image_size, central_fraction)
         self.coco_ids = [q['image_id'] for q in questions_json['questions']]
         self.coco_id_to_filename = self._find_images()
@@ -115,7 +113,7 @@ class VQA_dataset(torch.utils.data.Dataset):
 
     def _find_images(self):
         id_to_filename = {}
-        for filename in os.listdir(self.path):
+        for filename in os.listdir(self.image_path):
             if not filename.endswith('.jpg'):
                 continue
             id_and_extension = filename.split('_')[-1]

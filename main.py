@@ -33,16 +33,7 @@ def main(cfg: DictConfig) -> None:
     # Set seed for results reproduction
     main_utils.set_seed(cfg['main']['seed']) # TODO make sure
 
-    # TODO make sure works
-    processed_imgs_path = cfg['main']['paths']['processed_imgs']
-    if not os.path.exists(processed_imgs_path):
-        # todo replace resnet - https://github.com/shilrley6/Faster-R-CNN-with-model-pretrained-on-Visual-Genome
-        logger.write("Creating Processed Images")
-        # TODO change to something legal
-        preprocess_images.create_processed_images(data_base_path=cfg['main']['paths']['base_path'],
-                                                  train_imgs_path=cfg['main']['train_paths']['imgs'],
-                                                  val_imgs_path=cfg['main']['val_paths']['imgs'],
-                                                  save_path=processed_imgs_path)
+    # todo replace resnet - https://github.com/shilrley6/Faster-R-CNN-with-model-pretrained-on-Visual-Genome
 
     vocab_path = cfg['main']['paths']['vocab_path']
     if not os.path.exists(vocab_path):
@@ -56,10 +47,14 @@ def main(cfg: DictConfig) -> None:
     logger.write("Creating datasets")
     train_dataset = VQA_dataset(data_paths=cfg['main']['train_paths'],
                                 other_paths=cfg['main']['paths'],
+                                image_size=cfg['train']['image_size'],
+                                central_fraction=cfg['train']['central_fraction'],
                                 answerable_only=True)
 
     val_dataset = VQA_dataset(data_paths=cfg['main']['val_paths'],
                               other_paths=cfg['main']['paths'],
+                              image_size=cfg['train']['image_size'],
+                              central_fraction=cfg['train']['central_fraction'],
                               answerable_only=False)
 
     train_loader = DataLoader(dataset=train_dataset,

@@ -33,7 +33,9 @@ CFG_SCHEMA = {
         'max_answers': int,
         'embedding_features': int,
         'num_epochs': int,
+        'image_size': int,
         'grad_clip': float,
+        'central_fraction': float,
         'dropouts': {
             'text': float,
             'attention': float,
