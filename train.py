@@ -68,13 +68,15 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             # (nll * a / 10) is loss in entries of correct answers, multiplied by proportion of # correct out of 10
             # Sum is over all correct answers
             # mean is over batch
-
-            # a_indices = a.coalesce().indices().cpu().numpy()
-            # a_values = a.coalesce().values()
             batch_size = y_hat.shape[0]
-            a_indices=a_indices[:a_length]
-            a_values=a_values[:a_length]
-            loss = (nll[a_indices] * (a_values / 10.0)).sum() / batch_size
+            batch_indices = [] # TODO cleaner way
+            for i in range(batch_size):
+                batch_indices.extend([i] * 10)
+                # a_indices = a.coalesce().indices().cpu().numpy()
+            # a_values = a.coalesce().values()
+            a_indices=a_indices.flatten().cpu().numpy()
+            a_values=a_values.flatten()
+            loss = (nll[[batch_indices, a_indices]] * (a_values / 10.0)).sum() / batch_size
             # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
             # nll[a]
             # Optimization step
@@ -86,14 +88,14 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
             metrics['count_norm'] += 1
 
-            batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, a_length))  # TODO make sure calculation is correct according to Itai.
+            batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, train_params['max_answers']))  # TODO make sure calculation is correct according to Itai.
             metrics['train_score'] += torch.sum(batch_score).cpu().item()
 
             metrics['train_loss'] += loss.item()  #* x.size(0)
 
             # Report model to tensorboard
             # if epoch == 0 and i == 0:
-                # logger.report_graph(model, [v, q, q_len])
+            # logger.report_graph(model, [v, q, q_len])
 
         # Learning rate scheduler step
         scheduler.step()
@@ -155,7 +157,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
         # a_indices = a.coalesce().indices().cpu().numpy()
         # a_values = a.coalesce().values()
         batch_size = y_hat.shape[0]
-        a_indices = a_indices[:a_length]
+        a_indices = a_indices[:a_length].cpu().numpy()
         a_values = a_values[:a_length]
         loss = (nll[a_indices] * (a_values / 10.0)).sum() / batch_size
         # loss += (nll * a.to_dense() / 10).sum(dim=1).mean()

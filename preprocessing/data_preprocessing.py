@@ -130,7 +130,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         # get unique indices and how many counts of each
         unique_indices, counts = np.unique(answers_with_id_from_vocab, return_counts=True)
         # return torch.sparse_coo_tensor(indices=torch.tensor([unique_indices]), values=torch.tensor(counts), size=(len(self.answer_to_index),))
-        return self.semi_dense(indices=unique_indices, values=torch.tensor(counts), size=len(unique_indices))
+        return self.semi_dense(indices=torch.tensor(unique_indices), values=torch.tensor(counts), size=len(unique_indices))
 
 
     def _find_images(self):
