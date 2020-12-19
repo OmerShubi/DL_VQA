@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.utils.rnn import pack_padded_sequence
 
+import torchvision.models as models # TODO delete
 
 class Net(nn.Module):
     """ Re-implementation of ``Show, Ask, Attend, and Answer: A Strong Baseline For Visual Question Answering'' [0]
@@ -45,6 +46,8 @@ class Net(nn.Module):
             out_features=cfg['max_answers'],
             drop=dropouts['classifier'],
         )
+        self.image = Image()
+
 
         # xavier_uniform_ init for linear and conv layers
         for m in self.modules(): # TODO need?
@@ -54,6 +57,7 @@ class Net(nn.Module):
                     m.bias.data.zero_()
 
     def forward(self, v, q, q_len):
+        v = self.image(v)
         q = self.text(q, list(q_len.data))
         v = v / (v.norm(p=2, dim=1, keepdim=True).expand_as(v) + 1e-8) # TODO ??
 
@@ -65,6 +69,19 @@ class Net(nn.Module):
 
         return answer
 
+class Image(nn.Module):
+    def __init__(self):
+        super(Image, self).__init__()
+
+        self.model = models.resnet152(pretrained=False)
+
+        def save_output(module, input, output):
+            self.buffer = output
+        self.model.layer4.register_forward_hook(save_output)
+
+    def forward(self, x):
+        self.model(x)
+        return self.buffer
 
 class Classifier(nn.Sequential):
     def __init__(self, in_features, mid_features, out_features, drop=0.0):

@@ -7,8 +7,10 @@ from PIL import Image
 import h5py
 import torch
 import torch.utils.data
+import torchvision.transforms as transforms
 
 UNKOWN_TOKEN = 0
+
 
 class VQA_dataset(torch.utils.data.Dataset):
     """ VQA_dataset dataset, open-ended """
@@ -19,7 +21,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         questions_path = os.path.join(base_path, data_paths['questions'])
         answers_path = os.path.join(base_path, data_paths['answers'])
         vocabulary_path = other_paths['vocab_path']
-        self.image_features_path = other_paths['processed_imgs']
+        self.image_path = os.path.join(base_path, data_paths['imgs'])
 
         with open(questions_path, 'r') as fd:
             questions_json = json.load(fd)
@@ -42,9 +44,12 @@ class VQA_dataset(torch.utils.data.Dataset):
         answers = list(prepare_answers(answers_json))
         self.answers = [self._encode_answers(a) for a in answers]
 
-        # v - for each question store image id in coco_ids
-        self.coco_id_to_h5index = self._create_coco_id_to_index()
+        # imgs
+        image_size = 320  # scale shorter end of image to this size and centre crop  # TODO param
+        central_fraction = 0.875  # only take this much of the centre when scaling and centre cropping  # TODO param
+        self.transform = self._get_transformations(image_size, central_fraction)
         self.coco_ids = [q['image_id'] for q in questions_json['questions']]
+        self.coco_id_to_filename = self._find_images()
 
         # only use questions that have at least one answer?
         self.answerable_only = answerable_only
@@ -108,17 +113,24 @@ class VQA_dataset(torch.utils.data.Dataset):
                 answer_vec[index] += 1
         return answer_vec
 
-    def _load_image(self, image_id):
-        """ Load an image """
-        if not hasattr(self, 'features_file'):
-            # Loading the h5 file has to be done here and not in __init__ because when the DataLoader
-            # forks for multiple works, every child would use the same file object and fail
-            # Having multiple readers using different file objects is fine though, so we just init in here.
-            self.features_file = h5py.File(self.image_features_path, 'r')
-        index = self.coco_id_to_h5index[image_id]
-        dataset = self.features_file['features']
-        img = dataset[index].astype('float32')
-        return torch.from_numpy(img)
+    def _find_images(self):
+        id_to_filename = {}
+        for filename in os.listdir(self.path):
+            if not filename.endswith('.jpg'):
+                continue
+            id_and_extension = filename.split('_')[-1]
+            id = int(id_and_extension.split('.')[0])
+            id_to_filename[id] = filename
+        return id_to_filename
+
+    def _get_transformations(self, target_size, central_fraction=1.0):
+        return transforms.Compose([
+            transforms.Resize(size=int(target_size / central_fraction)),
+            transforms.CenterCrop(target_size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+        ])
 
     def __getitem__(self, item):
         if self.answerable_only:
@@ -127,8 +139,14 @@ class VQA_dataset(torch.utils.data.Dataset):
 
         q, q_length = self.questions[item]
         a = self.answers[item]
-        image_id = self.coco_ids[item]
-        v = self._load_image(image_id)
+
+        img_file_name = self.coco_id_to_filename[self.coco_ids[item]]
+        path = os.path.join(self.image_path, img_file_name)
+        v = Image.open(path).convert('RGB')
+
+        if self.transform is not None:
+            v = self.transform(v)
+
         # since batches are re-ordered for PackedSequence's, the original question order is lost
         # we return `item` so that the order of (v, q, a) triples can be restored if desired
         # without shuffling in the dataloader, these will be in the order that they appear in the q and a json's.
@@ -266,60 +284,3 @@ def process_digit_article(inText):
             outText[wordId] = contractions[word]
     outText = ' '.join(outText)
     return outText
-
-
-class CocoImages(torch.utils.data.Dataset):
-    def __init__(self, path, transform=None):
-        """
-        Dataset for MSCOCO images located in a folder on the filesystem
-
-        :param path: path to image dir
-        :param transform: transforms.Compose, transformations to apply
-        """
-        super(CocoImages, self).__init__()
-        self.path = path
-        self.id_to_filename = self._find_images()
-        self.sorted_ids = sorted(self.id_to_filename.keys())  # used for deterministic iteration order
-        print('found {} images in {}'.format(len(self), self.path))
-        self.transform = transform
-
-    def _find_images(self):
-        id_to_filename = {}
-        for filename in os.listdir(self.path):
-            if not filename.endswith('.jpg'):
-                continue
-            id_and_extension = filename.split('_')[-1]
-            id = int(id_and_extension.split('.')[0])
-            id_to_filename[id] = filename
-        return id_to_filename
-
-    def __getitem__(self, item):
-        id = self.sorted_ids[item]
-        path = os.path.join(self.path, self.id_to_filename[id])
-        img = Image.open(path).convert('RGB')
-
-        if self.transform is not None:
-            img = self.transform(img)
-        return id, img
-
-    def __len__(self):
-        return len(self.sorted_ids)
-
-
-class Composite(torch.utils.data.Dataset):
-    """ Dataset that is a composite of several Dataset objects. Useful for combining splits of a dataset. """
-
-    def __init__(self, *datasets):
-        self.datasets = datasets
-
-    def __getitem__(self, item):
-        current = self.datasets[0]
-        for d in self.datasets:
-            if item < len(d):
-                return d[item]
-            item -= len(d)
-        else:
-            raise IndexError('Index too large for composite dataset')
-
-    def __len__(self):
-        return sum(map(len, self.datasets))

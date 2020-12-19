@@ -78,7 +78,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
             metrics['count_norm'] += 1
 
-            batch_score = batch_accuracy(y_hat.data, a.data)
+            batch_score = batch_accuracy(y_hat.data, a.data)  # TODO make sure calculation is correct according to Itai.
             metrics['train_score'] += torch.sum(batch_score).cpu().item()
 
             metrics['train_loss'] += loss.item()  #* x.size(0)
@@ -132,7 +132,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
     score = 0
     loss = 0
 
-    log_softmax = nn.LogSoftmax().cuda()  # TODO change
+    log_softmax = nn.LogSoftmax(dim=1).cuda()
 
     for (v, q, a, idx, q_len) in tqdm(dataloader):
         if torch.cuda.is_available():
@@ -143,13 +143,10 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
 
         y_hat = model(v, q, q_len)
 
-        nll = -log_softmax(y_hat)  # TODO change
-        loss += (nll * a / 10).sum(dim=1).mean()  # TODO understand
+        nll = -log_softmax(y_hat)
+        loss += (nll * a / 10).sum(dim=1).mean()
 
-        # loss += nn.functional.binary_cross_entropy_with_logits(y_hat, y)
-        score += torch.sum(batch_accuracy(y_hat.data, a.data).cpu())  # TODO change
-
-        # score += train_utils.compute_score_with_logits(y_hat, y).sum().item()
+        score += torch.sum(batch_accuracy(y_hat.data, a.data).cpu())
 
     loss /= len(dataloader.dataset)
     score /= len(dataloader.dataset)
