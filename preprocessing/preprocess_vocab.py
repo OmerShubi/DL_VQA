@@ -41,7 +41,7 @@ def create_vocab(data_base_path, data_paths, vocab_path, max_answers=3000):
 
     question_vocab = extract_vocab(questions, start=1)
 
-    answer_vocab = extract_vocab(answers, top_k=max_answers)
+    answer_vocab = extract_vocab(answers, top_k=max_answers, start=1)
 
     vocabs = {
         'question': question_vocab,

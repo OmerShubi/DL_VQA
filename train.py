@@ -74,9 +74,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
                 batch_indices.extend([i] * 10)
                 # a_indices = a.coalesce().indices().cpu().numpy()
             # a_values = a.coalesce().values()
-            a_indices=a_indices.flatten().cpu().numpy()
-            a_values=a_values.flatten()
-            loss = (nll[[batch_indices, a_indices]] * (a_values / 10.0)).sum() / batch_size
+            loss = (nll[[batch_indices, a_indices.flatten().cpu().numpy()]] * (a_values.flatten() / 10.0)).sum() / batch_size
             # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
             # nll[a]
             # Optimization step
@@ -88,7 +86,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
             metrics['count_norm'] += 1
 
-            batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, train_params['max_answers']))  # TODO make sure calculation is correct according to Itai.
+            batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, train_params.max_answers)))  # TODO make sure calculation is correct according to Itai.
             metrics['train_score'] += torch.sum(batch_score).cpu().item()
 
             metrics['train_loss'] += loss.item()  #* x.size(0)
@@ -109,7 +107,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
         norm = metrics['total_norm'] / metrics['count_norm']
 
         model.train(False)
-        metrics['eval_score'], metrics['eval_loss'] = evaluate(model, eval_loader)
+        metrics['eval_score'], metrics['eval_loss'] = evaluate(model, eval_loader, train_params.max_answers)
         model.train(True)
 
         epoch_time = time.time() - t
@@ -132,7 +130,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
 
 
 @torch.no_grad()
-def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
+def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
     """
     Evaluate a model without gradient calculation
     :param model: instance of a model
@@ -157,12 +155,16 @@ def evaluate(model: nn.Module, dataloader: DataLoader) -> Scores:
         # a_indices = a.coalesce().indices().cpu().numpy()
         # a_values = a.coalesce().values()
         batch_size = y_hat.shape[0]
-        a_indices = a_indices[:a_length].cpu().numpy()
-        a_values = a_values[:a_length]
-        loss = (nll[a_indices] * (a_values / 10.0)).sum() / batch_size
+        batch_indices = []  # TODO cleaner way
+        for i in range(batch_size):
+            batch_indices.extend([i] * 10)
+            # a_indices = a.coalesce().indices().cpu().numpy()
+        # a_values = a.coalesce().values()
+
+        loss = (nll[a_indices.flatten().cpu().numpy()] * (a_values.flatten() / 10.0)).sum() / batch_size
         # loss += (nll * a.to_dense() / 10).sum(dim=1).mean()
 
-        score += torch.sum(batch_accuracy(y_hat.data, (a_indices, a_values, a_length)).cpu())
+        score += torch.sum(batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers))).cpu())
 
     loss /= len(dataloader.dataset)
     score /= len(dataloader.dataset)
