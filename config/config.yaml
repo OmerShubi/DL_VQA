@@ -22,10 +22,12 @@ main:
     questions: 'v2_OpenEnded_mscoco_train2014_questions.json'
     answers: 'v2_mscoco_train2014_annotations.json'
     imgs: 'train2014'
+    processed_imgs: './processed_train_images.h5'
   val_paths:
     questions: 'v2_OpenEnded_mscoco_val2014_questions.json'
     answers: 'v2_mscoco_val2014_annotations.json'
     imgs: 'val2014'
+    processed_imgs: './processed_val_images.h5'
 train:
   question_features: 1024
   image_features: 110 # TODO make sure code can handle dim change

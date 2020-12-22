@@ -9,6 +9,7 @@ import hydra
 
 from preprocessing import preprocess_vocab
 from preprocessing.data_preprocessing import VQA_dataset
+from preprocessing.preprocess_images import preprocess_images
 from train import train
 from models.base_model import Net
 from torch.utils.data import DataLoader
@@ -44,20 +45,34 @@ def main(cfg: DictConfig) -> None:
                                       vocab_path=vocab_path,
                                       max_answers=cfg['train']['max_answers'])
 
+    train_imgs = cfg['main']['train_paths']['processed_imgs']
+    if not os.path.exists(train_imgs):
+        logger.write("Processing train images")
+        preprocess_images(other_paths=cfg['main']['paths']['base_path'],
+                          data_paths=cfg['main']['train_paths'],
+                          image_size=cfg['train']['image_size'],
+                          central_fraction=cfg['train']['central_fraction'],
+                          processed_path=train_imgs)
+
+    val_imgs = cfg['main']['val_paths']['processed_imgs']
+    if not os.path.exists(val_imgs):
+        logger.write("Processing validation images")
+        preprocess_images(other_paths=cfg['main']['paths']['base_path'],
+                          data_paths=cfg['main']['val_paths'],
+                          image_size=cfg['train']['image_size'],
+                          central_fraction=cfg['train']['central_fraction'],
+                          processed_path=val_imgs)
+
     # Load dataset
     logger.write("Creating train dataset")
     train_dataset = VQA_dataset(data_paths=cfg['main']['train_paths'],
                                 other_paths=cfg['main']['paths'],
-                                image_size=cfg['train']['image_size'],
-                                central_fraction=cfg['train']['central_fraction'],
                                 logger=logger,
                                 answerable_only=True)
 
     logger.write("Creating validation dataset")
     val_dataset = VQA_dataset(data_paths=cfg['main']['val_paths'],
                               other_paths=cfg['main']['paths'],
-                              image_size=cfg['train']['image_size'],
-                              central_fraction=cfg['train']['central_fraction'],
                               logger=logger,
                               answerable_only=False)
 

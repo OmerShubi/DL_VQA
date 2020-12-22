@@ -15,7 +15,7 @@ from collections import namedtuple
 class VQA_dataset(torch.utils.data.Dataset):
     """ VQA_dataset dataset, open-ended """
 
-    def __init__(self, data_paths, other_paths, image_size, central_fraction, logger, answerable_only=False):
+    def __init__(self, data_paths, other_paths, logger, answerable_only=False):
         super(VQA_dataset, self).__init__()
         self.semi_dense = namedtuple('semi_dense', ['indices', 'values', 'size'])
 
@@ -23,8 +23,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         questions_path = os.path.join(base_path, data_paths['questions'])
         answers_path = os.path.join(base_path, data_paths['answers'])
         vocabulary_path = other_paths['vocab_path']
-        self.image_path = os.path.join(base_path, data_paths['imgs'])
-
+        self.image_path = data_paths['processed_imgs']
         logger.write("Opening files")
         with open(questions_path, 'r') as fd:
             questions_json = json.load(fd)
@@ -64,10 +63,8 @@ class VQA_dataset(torch.utils.data.Dataset):
 
         logger.write("indexing images")
         # imgs
-        self.transform = self._get_transformations(image_size, central_fraction)
         self.coco_ids = [q['image_id'] for q in questions_json['questions']]
-        self.coco_id_to_filename = self._find_images()
-
+        self.coco_id_to_h5index = self._create_coco_id_to_index()
 
         # only use questions that have at least one answer?
         self.answerable_only = answerable_only
@@ -87,7 +84,7 @@ class VQA_dataset(torch.utils.data.Dataset):
 
     def _create_coco_id_to_index(self):
         """ Create a mapping from a COCO image id into the corresponding index into the h5 file """
-        with h5py.File(self.image_features_path, 'r') as features_file:
+        with h5py.File(self.image_path, 'r') as features_file:
             coco_ids = features_file['ids'][()]
         coco_id_to_index = {id: i for i, id in enumerate(coco_ids)}
         return coco_id_to_index
@@ -132,25 +129,16 @@ class VQA_dataset(torch.utils.data.Dataset):
         # return torch.sparse_coo_tensor(indices=torch.tensor([unique_indices]), values=torch.tensor(counts), size=(len(self.answer_to_index),))
         return self.semi_dense(indices=torch.tensor(unique_indices), values=torch.tensor(counts), size=len(unique_indices))
 
-
-    def _find_images(self):
-        id_to_filename = {}
-        for filename in os.listdir(self.image_path):
-            if not filename.endswith('.jpg'):
-                continue
-            id_and_extension = filename.split('_')[-1]
-            id = int(id_and_extension.split('.')[0])
-            id_to_filename[id] = filename
-        return id_to_filename
-
-    def _get_transformations(self, target_size, central_fraction=1.0):
-        return transforms.Compose([
-            transforms.Resize(size=int(target_size / central_fraction)),
-            transforms.CenterCrop(target_size),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),
-        ])
+    def _load_image(self, image_id):
+        """ Load an image """
+        if not hasattr(self, 'processed_images'):
+            # Loading the h5 file has to be done here and not in __init__ because when the DataLoader
+            # forks for multiple works, every child would use the same file object and fail
+            # Having multiple readers using different file objects is fine though, so we just init in here.
+            self.processed_images = h5py.File(self.image_path, 'r')
+        index = self.coco_id_to_h5index[image_id]
+        img = self.processed_images['features'][index].astype('float32')
+        return torch.from_numpy(img)
 
     def __getitem__(self, item):
         if self.answerable_only:
@@ -161,13 +149,9 @@ class VQA_dataset(torch.utils.data.Dataset):
         a_indices = self.answer_indices[item]
         a_values = self.answer_values[item]
         a_length = self.answer_lengths[item]
-        # TODO preprocess images beforehand
-        img_file_name = self.coco_id_to_filename[self.coco_ids[item]]
-        path = os.path.join(self.image_path, img_file_name)
-        v = Image.open(path).convert('RGB')
+        image_id = self.coco_ids[item]
+        v = self._load_image(image_id)
 
-        if self.transform is not None:
-            v = self.transform(v)
 
         # since batches are re-ordered for PackedSequence's, the original question order is lost
         # we return `item` so that the order of (v, q, a) triples can be restored if desired
@@ -180,7 +164,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         else:
             return len(self.questions)
 
-
+# TODO cleanup
 period_strip = re.compile("(?!<=\d)(\.)(?!\d)")
 comma_strip = re.compile("(\d)(\,)(\d)")
 punct = [';', r"/", '[', ']', '"', '{', '}',

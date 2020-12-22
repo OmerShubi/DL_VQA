@@ -18,11 +18,13 @@ CFG_SCHEMA = {
         'train_paths': {
             'questions': str,
             'answers': str,
-            'imgs': str},
+            'imgs': str,
+            'processed_imgs': str},
         'val_paths': {
             'questions': str,
             'answers': str,
-            'imgs': str}
+            'imgs': str,
+            'processed_imgs': str}
     },
     'train': {
         'question_features': int,
