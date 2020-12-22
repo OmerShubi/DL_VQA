@@ -55,41 +55,25 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
         t = time.time()
         metrics = train_utils.get_zeroed_metrics_dict()
 
-        for (v, q, a_indices, a_values, a_length, idx, q_len) in tqdm(train_loader):
-            if torch.cuda.is_available():
-                v = v.cuda()
-                q = q.cuda()
-                a_values = a_values.cuda()
-                q_len = q_len.cuda()
-                # todo make sure requires_grad is correct
+        for batch_data in tqdm(train_loader):
+            batch_loss, batch_score = run_batch(model,
+                                                log_softmax,
+                                                batch_data,
+                                                train_params.max_answers)# TODO make sure grad works
 
-            y_hat = model(v, q, q_len)
-            nll = -log_softmax(y_hat)
-            # (nll * a / 10) is loss in entries of correct answers, multiplied by proportion of # correct out of 10
-            # Sum is over all correct answers
-            # mean is over batch
-            batch_size = y_hat.shape[0]
-            batch_indices = [] # TODO cleaner way
-            for i in range(batch_size):
-                batch_indices.extend([i] * 10)
-                # a_indices = a.coalesce().indices().cpu().numpy()
-            # a_values = a.coalesce().values()
-            loss = (nll[[batch_indices, a_indices.flatten().cpu().numpy()-1]] * (a_values.flatten() / 10.0)).sum() / batch_size
-            # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
-            # nll[a]
             # Optimization step
             optimizer.zero_grad()
-            loss.backward()
+            batch_loss.backward()
             optimizer.step()
 
             # Calculate metrics
-            metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
-            metrics['count_norm'] += 1
+            # metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
+            # metrics['count_norm'] += 1
 
-            batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, train_params.max_answers)))  # TODO make sure calculation is correct according to Itai.
-            metrics['train_score'] += torch.sum(batch_score).cpu().item()
+            metrics['train_score'] += batch_score.cpu().item() # todo check if cpu item necessary
 
-            metrics['train_loss'] += loss.item()  #* x.size(0)
+            metrics['train_loss'] += batch_loss.item()  #* x.size(0)
+            break  # TODO remove
 
             # Report model to tensorboard
             # if epoch == 0 and i == 0:
@@ -104,19 +88,23 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
         metrics['train_score'] /= len(train_loader.dataset)
         metrics['train_score'] *= 100
 
-        norm = metrics['total_norm'] / metrics['count_norm']
+        # norm = metrics['total_norm'] / metrics['count_norm']
 
         model.train(False)
         metrics['eval_score'], metrics['eval_loss'] = evaluate(model, eval_loader, train_params.max_answers)
         model.train(True)
 
         epoch_time = time.time() - t
-        logger.write_epoch_statistics(epoch, epoch_time, metrics['train_loss'], norm,
-                                      metrics['train_score'], metrics['eval_score'])
+        logger.write_epoch_statistics(epoch=epoch,
+                                      epoch_time=epoch_time,
+                                      train_loss=metrics['train_loss'],
+                                      norm=0,
+                                      train_score=metrics['train_score'],
+                                      eval_score=metrics['eval_score'])
 
         scalars = {'Accuracy/Train': metrics['train_score'],
-                   'Accuracy/Validation': metrics['train_loss'],
-                   'Loss/Train': metrics['eval_score'],
+                   'Accuracy/Validation': metrics['eval_score'],
+                   'Loss/Train': metrics['train_loss'],
                    'Loss/Validation': metrics['eval_loss']}
 
         logger.report_scalars(scalars, epoch)
@@ -142,58 +130,43 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
 
     log_softmax = nn.LogSoftmax(dim=1).cuda()
 
-    for (v, q, a_indices, a_values, a_length, idx, q_len) in tqdm(dataloader):
-        if torch.cuda.is_available():
-            v = v.cuda()
-            q = q.cuda()
-            a_values = a_values.cuda()
-            q_len = q_len.cuda()
-
-        y_hat = model(v, q, q_len)
-
-        nll = -log_softmax(y_hat)
-        # a_indices = a.coalesce().indices().cpu().numpy()
-        # a_values = a.coalesce().values()
-        batch_size = y_hat.shape[0]
-        batch_indices = []  # TODO cleaner way
-        for i in range(batch_size):
-            batch_indices.extend([i] * 10)
-            # a_indices = a.coalesce().indices().cpu().numpy()
-        # a_values = a.coalesce().values()
-
-        loss = (nll[a_indices.flatten().cpu().numpy()-1] * (a_values.flatten() / 10.0)).sum() / batch_size
-        # loss += (nll * a.to_dense() / 10).sum(dim=1).mean()
-
-        score += torch.sum(batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers))).cpu())
-
+    for batch_data in tqdm(dataloader):
+        batch_loss, batch_score = run_batch(model,
+                                            log_softmax,
+                                            batch_data,
+                                            max_answers) # TODO make sure no grad works
+        loss += batch_loss
+        score += batch_score
+        break # TODO remove
     loss /= len(dataloader.dataset)
     score /= len(dataloader.dataset)
     score *= 100
 
     return score, loss
 
-# TODO merge duplicate code from train and evaluate
-# def run_batch(model, v, q, a_indices, a_values, a_length, idx, q_len):
-#     if torch.cuda.is_available():
-#         v = v.cuda()
-#         q = q.cuda()
-#         a_values = a_values.cuda()
-#         q_len = q_len.cuda()
-#
-#     y_hat = model(v, q, q_len)
-#
-#     nll = -log_softmax(y_hat)
-#     # a_indices = a.coalesce().indices().cpu().numpy()
-#     # a_values = a.coalesce().values()
-#     batch_size = y_hat.shape[0]
-#     batch_indices = []  # TODO cleaner way
-#     for i in range(batch_size):
-#         batch_indices.extend([i] * 10)
-#         # a_indices = a.coalesce().indices().cpu().numpy()
-#     # a_values = a.coalesce().values()
-#
-#     loss = (nll[a_indices.flatten().cpu().numpy()] * (a_values.flatten() / 10.0)).sum() / batch_size
-#     # loss += (nll * a.to_dense() / 10).sum(dim=1).mean()
-#
-#     score = torch.sum(batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers))).cpu())
-#     return loss, score
+def run_batch(model, log_softmax, batch_data, max_answers):
+    v, q, a_indices, a_values, a_length, idx, q_len = batch_data
+    if torch.cuda.is_available():
+        v = v.cuda()
+        q = q.cuda()
+        a_values = a_values.cuda()
+        q_len = q_len.cuda()
+        # todo make sure requires_grad is correct
+
+    y_hat = model(v, q, q_len)
+    nll = -log_softmax(y_hat)
+    # (nll * a / 10) is loss in entries of correct answers, multiplied by proportion of # correct out of 10
+    # Sum is over all correct answers
+    # mean is over batch
+    batch_size = y_hat.shape[0]
+    batch_indices = []  # TODO cleaner way
+    for i in range(batch_size):
+        batch_indices.extend([i] * 10)
+        # a_indices = a.coalesce().indices().cpu().numpy()
+    # a_values = a.coalesce().values()
+    batch_loss = (nll[[batch_indices, a_indices.flatten().cpu().numpy() - 1]] * (a_values.flatten() / 10.0)).sum() / batch_size
+    # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
+    # nll[a]
+    batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers)))  # TODO make sure calculation is correct according to Itai.
+
+    return batch_loss, batch_score

@@ -90,12 +90,7 @@ def main(cfg: DictConfig) -> None:
                             pin_memory=True)
 
     # Init model
-    # model = Net(num_hid=cfg['train']['num_hid'], dropout=cfg['train']['dropout'])
     model = Net(cfg['train'], embedding_tokens=train_loader.dataset.num_tokens)
-
-    # TODO: Add gpus_to_use
-    if cfg['main']['parallel']:
-        model = torch.nn.DataParallel(model)
 
     if torch.cuda.is_available():
         model = model.cuda()

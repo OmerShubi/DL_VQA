@@ -39,10 +39,11 @@ def preprocess_images(other_paths, data_paths, image_size, central_fraction, pro
     with h5py.File(processed_path, libver='latest') as fd:
         features = fd.create_dataset('features', shape=features_shape, dtype='float16')
         coco_ids = fd.create_dataset('ids', shape=(num_imgs,), dtype='int32')
-        id_to_features = {}
         transformations = _get_transformations(image_size, central_fraction)
-
+        print(f"Processing {num_imgs} images")
         for indx, filename in enumerate(file_names):
+            if indx % 1000 ==0:
+                print(f"Completed {indx} images")
             id_and_extension = filename.split('_')[-1]
             id = int(id_and_extension.split('.')[0])
             path = os.path.join(image_path, filename)
