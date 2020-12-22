@@ -160,11 +160,21 @@ def run_batch(model, log_softmax, batch_data, max_answers):
     # mean is over batch
     batch_size = y_hat.shape[0]
     batch_indices = []  # TODO cleaner way
-    for i in range(batch_size):
-        batch_indices.extend([i] * 10)
+    for i, a_len in enumerate(a_length):
+        batch_indices.extend([i] * a_len)  # batch indices are the 'x' indices equal to the number of actual different answers in each entry
         # a_indices = a.coalesce().indices().cpu().numpy()
     # a_values = a.coalesce().values()
-    batch_loss = (nll[[batch_indices, a_indices.flatten().cpu().numpy() - 1]] * (a_values.flatten() / 10.0)).sum() / batch_size
+    a_indices_flat = a_indices.flatten()
+    # remove indices that where part of padding, and adjust indices to match nll (start from 0 instead of 1)
+    a_indices_flat_nonzero_adjusted = a_indices_flat[a_indices_flat.nonzero()].flatten().cpu().numpy() - 1
+    nll_relevant = nll[[batch_indices, a_indices_flat_nonzero_adjusted]]
+    a_values_flat = a_values.flatten()
+
+    # remove values that where part of padding (0) and divide by 10 to get probabilities
+    a_values_flat_nonzero = a_values_flat[a_values_flat.nonzero()].flatten() / 10.0
+
+    #
+    batch_loss = (nll_relevant * a_values_flat_nonzero).sum() / batch_size
     # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
     # nll[a]
     batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers)))  # TODO make sure calculation is correct according to Itai.

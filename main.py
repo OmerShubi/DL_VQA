@@ -14,12 +14,10 @@ from train import train
 from models.base_model import Net
 from torch.utils.data import DataLoader
 from utils import main_utils, train_utils
-from utils.main_utils import collate_fn
 from utils.train_logger import TrainLogger
 from omegaconf import DictConfig, OmegaConf
 
 torch.backends.cudnn.benchmark = True
-
 
 
 @hydra.main(config_path="config", config_name='config')
@@ -33,7 +31,7 @@ def main(cfg: DictConfig) -> None:
     logger.write(OmegaConf.to_yaml(cfg))
 
     # Set seed for results reproduction
-    main_utils.set_seed(cfg['main']['seed']) # TODO make sure
+    main_utils.set_seed(cfg['main']['seed'])  # TODO make sure
 
     # todo replace resnet - https://github.com/shilrley6/Faster-R-CNN-with-model-pretrained-on-Visual-Genome
 
@@ -48,7 +46,7 @@ def main(cfg: DictConfig) -> None:
     train_imgs = cfg['main']['train_paths']['processed_imgs']
     if not os.path.exists(train_imgs):
         logger.write("Processing train images")
-        preprocess_images(other_paths=cfg['main']['paths']['base_path'],
+        preprocess_images(other_paths=cfg['main']['paths'],
                           data_paths=cfg['main']['train_paths'],
                           image_size=cfg['train']['image_size'],
                           central_fraction=cfg['train']['central_fraction'],
@@ -57,7 +55,7 @@ def main(cfg: DictConfig) -> None:
     val_imgs = cfg['main']['val_paths']['processed_imgs']
     if not os.path.exists(val_imgs):
         logger.write("Processing validation images")
-        preprocess_images(other_paths=cfg['main']['paths']['base_path'],
+        preprocess_images(other_paths=cfg['main']['paths'],
                           data_paths=cfg['main']['val_paths'],
                           image_size=cfg['train']['image_size'],
                           central_fraction=cfg['train']['central_fraction'],
@@ -75,7 +73,6 @@ def main(cfg: DictConfig) -> None:
                               other_paths=cfg['main']['paths'],
                               logger=logger,
                               answerable_only=False)
-
 
     train_loader = DataLoader(dataset=train_dataset,
                               batch_size=cfg['train']['batch_size'],
