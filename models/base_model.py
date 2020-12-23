@@ -45,6 +45,12 @@ class Net(nn.Module):
             lstm_features=question_features,
             drop=dropouts['text'],
         )
+        # TODO change
+        # self.image = GoogLeNet()
+        self.image = ImageConv()
+        # self.image = resnet_()
+
+
         self.attention = Attention(
             v_features=image_features,
             q_features=question_features,
@@ -52,13 +58,13 @@ class Net(nn.Module):
             glimpses=glimpses,
             drop=dropouts['attention'],
         )
+
         self.classifier = Classifier(
             in_features=glimpses * image_features + question_features,
             mid_features=cfg['classifier_hidden_dim'],
             out_features=cfg['max_answers'],
             drop=dropouts['classifier'],
         )
-        self.image = GoogLeNet()
 
 
         # xavier_uniform_ init for linear and conv layers
@@ -80,6 +86,53 @@ class Net(nn.Module):
         answer = self.classifier(combined)
 
         return answer
+
+
+
+
+import torch.nn as nn
+import torch.nn.functional as F
+
+# TODO DELETE
+class resnet_(nn.Module):
+    def __init__(self):
+        super(resnet_, self).__init__()
+        self.model = models.resnet152(pretrained=True)
+
+        def save_output(module, input, output):
+            self.buffer = output
+
+        self.model.layer4.register_forward_hook(save_output)
+
+    def forward(self, x):
+        self.model(x)
+        return self.buffer
+
+class ImageConv(nn.Module):
+    def __init__(self):
+        super(ImageConv, self).__init__()
+        kernel1_size = 5
+        kernel2_size = 5
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=kernel1_size)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=kernel2_size)
+        self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
+        self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
+        # self.fc1 = nn.Linear(16 * kernel1_size * kernel2_size, 120)
+        # self.fc2 = nn.Linear(120, 84)
+        # self.fc3 = nn.Linear(84, 10)
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = self.pool(F.relu(self.conv3(x)))
+        x = self.pool(F.relu(self.conv4(x)))
+        # x = x.view(-1, 16 * 5 * 5)
+        # x = F.relu(self.fc1(x))
+        # x = F.relu(self.fc2(x))
+        # x = self.fc3(x)
+        return x
+
 
 
 class inception(nn.Module):

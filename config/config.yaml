@@ -9,7 +9,7 @@ hydra:
 main:
   experiment_name_prefix: my_exp
   seed: 1
-  num_workers: 5
+  num_workers: 0 #todo increase?
   parallel: False
   gpus_to_use: 1,2
   trains: False
@@ -33,7 +33,7 @@ main:
 #    processed_imgs: './processed_val_images_small.h5'
 train:
   question_features: 1024
-  image_features: 110 # TODO make sure code can handle dim change
+  image_features: 64 # TODO make sure code can handle dim change
   classifier_hidden_dim: 1024
   attention_hidden_dim: 512
   glimpses: 2
@@ -41,10 +41,10 @@ train:
   embedding_features: 300
   image_size: 224 # scale shorter end of image to this size and centre crop
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
-  dropouts:
-    text: 0.5
-    attention: 0.5
-    classifier: 0.5
+  dropouts: # TODO add dropout
+    text: 0.0
+    attention: 0.0
+    classifier: 0.0
   num_epochs: 10
   grad_clip: 0.25
   num_hid: 20

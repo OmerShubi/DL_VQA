@@ -59,7 +59,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             batch_loss, batch_score = run_batch(model,
                                                 log_softmax,
                                                 batch_data,
-                                                train_params.max_answers)# TODO make sure grad works
+                                                train_params.max_answers, type_='Train')# TODO make sure grad works
 
             # Optimization step
             optimizer.zero_grad()
@@ -82,10 +82,10 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
         scheduler.step()
 
         # Calculate metrics
-        metrics['train_loss'] /= len(train_loader.dataset)
+        metrics['train_loss'] /= len(train_loader)
 
         metrics['train_score'] /= len(train_loader.dataset)
-        metrics['train_score'] *= 100
+        # metrics['train_score'] *= 100
 
         # norm = metrics['total_norm'] / metrics['count_norm']
 
@@ -133,16 +133,16 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
         batch_loss, batch_score = run_batch(model,
                                             log_softmax,
                                             batch_data,
-                                            max_answers) # TODO make sure no grad works
+                                            max_answers, type_='Val') # TODO make sure no grad works
         loss += batch_loss
         score += batch_score
-    loss /= len(dataloader.dataset)
+    loss /= len(dataloader)
     score /= len(dataloader.dataset)
-    score *= 100
+    # score *= 100
 
     return score, loss
 
-def run_batch(model, log_softmax, batch_data, max_answers):
+def run_batch(model, log_softmax, batch_data, max_answers, type_):
     v, q, a_indices, a_values, a_length, idx, q_len = batch_data
     if torch.cuda.is_available():
         v = v.cuda()
@@ -174,7 +174,6 @@ def run_batch(model, log_softmax, batch_data, max_answers):
     #
     batch_loss = (nll_relevant * a_values_flat_nonzero).sum() / batch_size
     # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
-    # nll[a]
     batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers)))  # TODO make sure calculation is correct according to Itai.
-
+    print(f"{type_} - Batch Loss:{batch_loss}, Batch Acc:{batch_score/10}")
     return batch_loss, batch_score

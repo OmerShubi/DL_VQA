@@ -17,8 +17,11 @@ def batch_accuracy(predicted, true):
     # todo find how to do without for loop
     indices, values, size = true
     indices_nonzero = indices.nonzero().t()
-    true_sparse = torch.sparse_coo_tensor(indices_nonzero, values[indices_nonzero.cpu().numpy()], size)
-    agreeing = torch.tensor([true_sparse[batch_index, index.item()+1] for batch_index, index in enumerate(predicted_index)])
+    indices_for_slicing = indices_nonzero.cpu().numpy()
+    relevant_values = values[indices_for_slicing]
+    indices_nonzero[1] = indices[indices_for_slicing]-1
+    true_sparse = torch.sparse_coo_tensor(indices_nonzero, relevant_values, size)
+    agreeing = torch.tensor([true_sparse[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
     """
     agreeing = []
     for index in predicted_index:
