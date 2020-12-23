@@ -45,7 +45,7 @@ def main(cfg: DictConfig) -> None:
 
     train_imgs = cfg['main']['train_paths']['processed_imgs']
     if not os.path.exists(train_imgs):
-        logger.write("Processing train images")
+        logger.write(f"Processing train images, saving at {train_imgs}")
         preprocess_images(other_paths=cfg['main']['paths'],
                           data_paths=cfg['main']['train_paths'],
                           image_size=cfg['train']['image_size'],
@@ -54,7 +54,7 @@ def main(cfg: DictConfig) -> None:
 
     val_imgs = cfg['main']['val_paths']['processed_imgs']
     if not os.path.exists(val_imgs):
-        logger.write("Processing validation images")
+        logger.write(f"Processing validation images, saving at {val_imgs}")
         preprocess_images(other_paths=cfg['main']['paths'],
                           data_paths=cfg['main']['val_paths'],
                           image_size=cfg['train']['image_size'],

@@ -73,7 +73,6 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             metrics['train_score'] += batch_score.cpu().item() # todo check if cpu item necessary
 
             metrics['train_loss'] += batch_loss.item()  #* x.size(0)
-            break  # TODO remove
 
             # Report model to tensorboard
             # if epoch == 0 and i == 0:
@@ -137,7 +136,6 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
                                             max_answers) # TODO make sure no grad works
         loss += batch_loss
         score += batch_score
-        break # TODO remove
     loss /= len(dataloader.dataset)
     score /= len(dataloader.dataset)
     score *= 100

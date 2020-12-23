@@ -99,7 +99,7 @@ class TrainLogger:
             model_dict['optimizer_state'] = optimizer.state_dict()
 
         model_path = os.path.join(self.exp_dir, 'model.pth')
-
+        print(f"Saving model to {model_path}")
         torch.save(model_dict, model_path)
 
     @staticmethod
