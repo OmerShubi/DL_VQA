@@ -30,8 +30,13 @@ def get_model_string(model: nn.Module) -> str:
     for w in model.parameters():
         n_params += functools.reduce(operator.mul, w.size(), 1)
 
+    text_params = sum(p.numel() for p in model.text.parameters())
+    image_params = sum(p.numel() for p in model.image.parameters())
+    attention_params = sum(p.numel() for p in model.attention.parameters())
+    classifier_params = sum(p.numel() for p in model.classifier.parameters())
+
     model_string += '\n'
-    model_string += f'Params: {n_params}'
+    model_string += f'Total params: {n_params} (Text: {text_params}, Image: {image_params}, Attention: {attention_params}, Classifier: {classifier_params})'
 
     return model_string
 

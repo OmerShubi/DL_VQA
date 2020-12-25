@@ -36,8 +36,8 @@ class VqaNet(nn.Module):
             num_lstm_layers=text_cfg['num_lstm_layers'],
             bidirectional=text_cfg['bidirectional'])
         #TODO change
-        # self.image = GoogLeNet()
-        self.image = ImageConv()
+        self.image = GoogLeNet()
+        # self.image = ImageNet()
 
         self.attention = Attention(
             v_features=image_features,
@@ -75,24 +75,42 @@ class VqaNet(nn.Module):
         return answer
 
 
-class ImageConv(nn.Module):
+class ImageNet(nn.Module):
     def __init__(self):
-        super(ImageConv, self).__init__()
+        super(ImageNet, self).__init__()
         kernel1_size = 3
         kernel2_size = 3
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=kernel1_size)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=kernel2_size)
+        # self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=kernel1_size)
+        # self.pool = nn.MaxPool2d(2, 2)
+        # self.conv2 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=kernel2_size)
         # self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
         # self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
-        self.dropout = nn.Dropout(p=0.3)
-
+        self.net = nn.Sequential(nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
+                                 nn.BatchNorm2d(64),
+                                 nn.ReLU(True),
+                                 nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
+                                 nn.ReLU(True),
+                                 nn.MaxPool2d(2, 2),
+                                 nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+                                 nn.BatchNorm2d(128),
+                                 nn.ReLU(True),
+                                 nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
+                                 nn.BatchNorm2d(128),
+                                 nn.ReLU(True),
+                                 nn.MaxPool2d(2, 2),
+                                 nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
+                                 nn.BatchNorm2d(256),
+                                 nn.ReLU(True),
+                                 nn.Dropout(p=0.3))
+        # self.dropout = nn.Dropout(p=0.3)
+        # batch X num channels X H X W
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = F.relu(self.conv2(x))
-        # x = self.pool(F.relu(self.conv3(x)))
-        # x = self.pool(F.relu(self.conv4(x))) # + x_orig
-        x = self.dropout(x)
+        x= self.net(x)
+        # x = F.relu(self.conv1(x))
+        # x = self.pool(F.relu(self.conv2(x)))
+        # x = F.relu(self.conv3(x))
+        # x = F.relu(self.conv4(x)) # + x_orig
+        # x = self.dropout(x)
         return x
 
 
@@ -138,7 +156,7 @@ class inception(nn.Module):
         b2 = self.b1x3(a)
         b3 = self.b1x5(a)
         b4 = self.b3x1(a)
-        return torch.cat([b1, b2, b3, b4], 1)           # concatenating the convolutions' branches
+        return torch.cat([b1, b2, b3, b4], 1)  # concatenating the convolutions' branches
 
 
 # the convolutional level
@@ -150,54 +168,66 @@ class GoogLeNet(nn.Module):
             nn.BatchNorm2d(30),
             nn.ReLU(True),
         )
+        # input num channels = num_of_planes
+        # output = nof1x1+nof3x3_out+nof5x5_out+pool_planes
 
-        self.a3 = inception(num_of_planes=30,
+        self.a1 = inception(num_of_planes=30,
                             nof1x1=10,
                             nof3x3_1=4,
                             nof3x3_out=12,
                             nof5x5_1=4,
                             nof5x5_out=8,
                             pool_planes=8)
-        # input num channels = num_of_planes
-        # dim 1 (num channels)  = nof1x1+nof3x3_out+nof5x5_out+pool_planes
 
-        self.b3 = inception(38, 14,  6, 16, 4, 10, 10)
+        self.a2 = inception(num_of_planes=38,
+                            nof1x1=14,
+                            nof3x3_1=6,
+                            nof3x3_out=16,
+                            nof5x5_1=4,
+                            nof5x5_out=10,
+                            pool_planes=10)
+
+        self.a3 = inception(num_of_planes=50,
+                            nof1x1=20,
+                            nof3x3_1=8,
+                            nof3x3_out=20,
+                            nof5x5_1=4,
+                            nof5x5_out=12,
+                            pool_planes=12)
+
+        self.a4 = inception(num_of_planes=64,
+                            nof1x1=22,
+                            nof3x3_1=9,
+                            nof3x3_out=24,
+                            nof5x5_1=4,
+                            nof5x5_out=14,
+                            pool_planes=16)
+        # self.a4 = inception(num_of_planes=64,
+        #                     nof1x1=64,
+        #                     nof3x3_1=9,
+        #                     nof3x3_out=64,
+        #                     nof5x5_1=4,
+        #                     nof5x5_out=64,
+        #                     pool_planes=64)
 
         self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
-
-        self.a4 = inception(50, 20,  8, 20, 4, 12, 12)
-        self.b4 = inception(64, 22,  9, 24, 4, 14, 16)
-
-        self.a5 = inception(76, 26,  12, 28, 4, 18, 18)
-        self.b5 = inception(90, 34,  16, 36, 6, 20, 20)
         self.dropout = nn.Dropout(p=0.3)
 
 
     def forward(self, x):
         # x dim = [batch_size, 3, image_size, image_size]
         out = self.first_layer(x)  # [batch_size, 30, image_size, image_size]
-        out = self.a3(out)  # [batch_size, 38, image_size, image_size]
-        out = self.b3(out)  # [batch_size, 50, image_size, image_size]
+        out = self.a1(out)  # [batch_size, 38, image_size, image_size]
         out = self.maxpool(out)  # [batch_size, 50, image_size/2, image_size/2]
-        out = self.a4(out)  # [batch_size, 64, image_size/2, image_size/2]
-        out = self.b4(out)  # [batch_size, 76, image_size/2, image_size/2]
-        out = self.maxpool(out)
-        out = self.a5(out)
-        out = self.b5(out)
-        # out = out+x after conv to change dims - resnet
+        out = self.a2(out)  # [batch_size, 50, image_size/2, image_size/2]
+        out = self.a3(out)  # [batch_size, 64, image_size/2, image_size/2]
+        out = self.maxpool(out)  # [batch_size, 64, image_size/4, image_size/4]
+        out = self.a4(out)  # [batch_size, 76, image_size/4, image_size/4]
         out = self.dropout(out)
 
         return out
 
 
-class Classifier(nn.Sequential):
-    def __init__(self, in_features, mid_features, out_features, drop=0.0):
-        super(Classifier, self).__init__()
-        self.add_module('drop1', nn.Dropout(drop))
-        self.add_module('lin1', nn.Linear(in_features=in_features, out_features=mid_features))
-        self.add_module('relu', nn.ReLU())
-        self.add_module('drop2', nn.Dropout(drop))
-        self.add_module('lin2', nn.Linear(in_features=mid_features, out_features=out_features))
 
 
 class questionNet(nn.Module):
@@ -251,6 +281,16 @@ class Attention(nn.Module):
         x = self.relu(v + q) # todo why + and not cat? - for report, doesnt match paper?
         x = self.x_conv(self.drop(x))
         return x
+
+
+class Classifier(nn.Sequential):
+    def __init__(self, in_features, mid_features, out_features, drop=0.0):
+        super(Classifier, self).__init__()
+        self.add_module('drop1', nn.Dropout(drop))
+        self.add_module('lin1', nn.Linear(in_features=in_features, out_features=mid_features))
+        self.add_module('relu', nn.ReLU())
+        self.add_module('drop2', nn.Dropout(drop))
+        self.add_module('lin2', nn.Linear(in_features=mid_features, out_features=out_features))
 
 
 def apply_attention(input_, attention):
