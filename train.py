@@ -175,5 +175,6 @@ def run_batch(model, log_softmax, batch_data, max_answers, type_):
     batch_loss = (nll_relevant * a_values_flat_nonzero).sum() / batch_size
     # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
     batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers)))  # TODO make sure calculation is correct according to Itai.
-    print(f"{type_} - Batch Loss:{batch_loss}, Batch Acc:{batch_score/10}")
+    # TODO fix ROUND!
+    # print(f"{type_} - Batch Loss:{round(batch_loss,3)}, Batch Acc:{round(batch_score/10,4)}")
     return batch_loss, batch_score

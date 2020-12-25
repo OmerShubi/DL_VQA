@@ -11,7 +11,6 @@ def extract_vocab(iterable, top_k=None, start=0):
     """ Turns an iterable of list of tokens into a vocabulary.
         These tokens could be single answers or word tokens in questions.
     """
-    # TODO change to pytorch Vocab
     all_tokens = itertools.chain.from_iterable(iterable)
     counter = Counter(all_tokens)
     print(len(counter))

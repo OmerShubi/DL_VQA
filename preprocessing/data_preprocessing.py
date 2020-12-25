@@ -108,7 +108,6 @@ class VQA_dataset(torch.utils.data.Dataset):
 
     def _encode_question(self, question):
         """ Turn a question into a vector of indices and a question length """
-        # TODO change to pytorch padding
         vec = torch.zeros(self.max_question_length).long()
         for i, token in enumerate(question):
             index = self.question_token_to_index.get(token, UNKOWN_TOKEN)
@@ -164,7 +163,6 @@ class VQA_dataset(torch.utils.data.Dataset):
         else:
             return len(self.questions)
 
-# TODO cleanup
 period_strip = re.compile("(?!<=\d)(\.)(?!\d)")
 comma_strip = re.compile("(\d)(\,)(\d)")
 punct = [';', r"/", '[', ']', '"', '{', '}',

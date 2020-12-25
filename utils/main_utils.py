@@ -109,7 +109,6 @@ def init(cfg: DictConfig) -> None:
     """
     :cfg: hydra configuration file
     """
-    # TODO: Trains
     os.chdir(hydra.utils.get_original_cwd())
     validate_input(cfg)
 

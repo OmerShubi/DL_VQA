@@ -14,7 +14,6 @@ def batch_accuracy(predicted, true):
     #  predicted_index is tensor of batch X index of highest predicted value
     _, predicted_index = predicted.max(dim=1, keepdim=True)
     # agreeing is tensor of number of people that said each predicted_index answer
-    # todo find how to do without for loop
     indices, values, size = true
     indices_nonzero = indices.nonzero().t()
     indices_for_slicing = indices_nonzero.cpu().numpy()
@@ -22,37 +21,8 @@ def batch_accuracy(predicted, true):
     indices_nonzero[1] = indices[indices_for_slicing]-1
     true_sparse = torch.sparse_coo_tensor(indices_nonzero, relevant_values, size)
     agreeing = torch.tensor([true_sparse[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
-    """
-    agreeing = []
-    for index in predicted_index:
-        if 
-    """
-    # agreeing = true.gather(dim=1, index=predicted_index)
-    '''
-    Acc needs to be averaged over all 10 choose 9 subsets of human answers.
-    While we could just use a loop, surely this can be done more efficiently (and indeed, it can).
-    There are two cases for the 1 chosen answer to be discarded:
-    (1) the discarded answer is not the predicted answer => acc stays the same
-    (2) the discarded answer is the predicted answer => we have to subtract 1 from the number of agreeing answers
+    # todo find how to do without for loop
 
-    There are (10 - num_agreeing_answers) of case 1 and num_agreeing_answers of case 2, thus
-    acc = ((10 - agreeing) * min( agreeing      / 3, 1)
-           +     agreeing  * min((agreeing - 1) / 3, 1)) / 10
-
-    Let's do some more simplification:
-    if num_agreeing_answers == 0:
-        acc = 0  since the case 1 min term becomes 0 and case 2 weighting term is 0
-    if num_agreeing_answers >= 4:
-        acc = 1  since the min term in both cases is always 1
-    The only cases left are for 1, 2, and 3 agreeing answers.
-    In all of those cases, (agreeing - 1) / 3  <  agreeing / 3  <=  1, so we can get rid of all the mins.
-    By moving num_agreeing_answers from both cases outside the sum we get:
-        acc = agreeing * ((10 - agreeing) + (agreeing - 1)) / 3 / 10
-    which we can simplify to:
-        acc = agreeing * 0.3
-    Finally, we can combine all cases together with:
-        min(agreeing * 0.3, 1)
-    '''
     return torch.sum((agreeing * 0.3).clamp(max=1))
 
 
@@ -92,7 +62,6 @@ class TrainParams:
     lr_decay: float
     lr_gamma: float
     lr_step_size: int
-    grad_clip: float
     save_model: bool
     max_answers: int
 
@@ -107,7 +76,6 @@ class TrainParams:
         self.lr_gamma = kwargs['lr']['lr_gamma']
         self.lr_step_size = kwargs['lr']['lr_step_size']
 
-        self.grad_clip = kwargs['grad_clip']
         self.save_model = kwargs['save_model']
         self.max_answers = kwargs['max_answers']
 

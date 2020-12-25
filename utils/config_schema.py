@@ -7,9 +7,6 @@ CFG_SCHEMA = {
         'experiment_name_prefix': str,
         'seed': int,
         'num_workers': int,
-        'parallel': bool,
-        'gpus_to_use': str,
-        'trains': bool,
         'paths': {
             'base_path': str,
             'logs': str,
@@ -36,14 +33,12 @@ CFG_SCHEMA = {
         'embedding_features': int,
         'num_epochs': int,
         'image_size': int,
-        'grad_clip': float,
         'central_fraction': float,
         'dropouts': {
             'text': float,
             'attention': float,
             'classifier': float,
         },
-        'num_hid': int,
         'batch_size': int,
         'save_model': bool,
         'lr': {

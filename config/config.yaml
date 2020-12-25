@@ -1,4 +1,3 @@
-# TODO delete un-used params
 defaults:
   - hydra/job_logging: disabled
   - hydra/output_subdir: null
@@ -10,12 +9,9 @@ main:
   experiment_name_prefix: my_exp
   seed: 1
   num_workers: 0 #todo increase?
-  parallel: False
-  gpus_to_use: 1,2
-  trains: False
   paths:
-    base_path: '/datashare'
-#    base_path: './small_data'
+#    base_path: '/datashare'
+    base_path: './small_data'
     logs: 'logs/'
     processed_imgs: './resnet-14x14.h5'
     vocab_path: './vocab_updated.json'
@@ -23,17 +19,17 @@ main:
     questions: 'v2_OpenEnded_mscoco_train2014_questions.json'
     answers: 'v2_mscoco_train2014_annotations.json'
     imgs: 'train2014'
-    processed_imgs: './processed_train_images.h5'
-#    processed_imgs: './processed_train_images_small.h5'
+#    processed_imgs: './processed_train_images.h5'
+    processed_imgs: './processed_train_images_small.h5'
   val_paths:
     questions: 'v2_OpenEnded_mscoco_val2014_questions.json'
     answers: 'v2_mscoco_val2014_annotations.json'
     imgs: 'val2014'
-    processed_imgs: './processed_val_images.h5'
-#    processed_imgs: './processed_val_images_small.h5'
+#    processed_imgs: './processed_val_images.h5'
+    processed_imgs: './processed_val_images_small.h5'
 train:
   question_features: 1024
-  image_features: 64 # TODO make sure code can handle dim change
+  image_features: 256
   classifier_hidden_dim: 1024
   attention_hidden_dim: 512
   glimpses: 2
@@ -41,13 +37,11 @@ train:
   embedding_features: 300
   image_size: 224 # scale shorter end of image to this size and centre crop
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
-  dropouts: # TODO add dropout
-    text: 0.0
-    attention: 0.0
-    classifier: 0.0
+  dropouts:
+    text: 0.3
+    attention: 0.3
+    classifier: 0.3
   num_epochs: 10
-  grad_clip: 0.25
-  num_hid: 20
   batch_size: 16
   save_model: True
   lr:

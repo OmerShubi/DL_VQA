@@ -12,8 +12,6 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.utils.rnn import pack_padded_sequence
 
-import torchvision.models as models # TODO delete
-
 
 # TODO action item - speed
 """
@@ -45,11 +43,9 @@ class Net(nn.Module):
             lstm_features=question_features,
             drop=dropouts['text'],
         )
-        # TODO change
+        #TODO change
         # self.image = GoogLeNet()
         self.image = ImageConv()
-        # self.image = resnet_()
-
 
         self.attention = Attention(
             v_features=image_features,
@@ -65,7 +61,6 @@ class Net(nn.Module):
             out_features=cfg['max_answers'],
             drop=dropouts['classifier'],
         )
-
 
         # xavier_uniform_ init for linear and conv layers
         for m in self.modules(): # TODO need?
@@ -88,51 +83,25 @@ class Net(nn.Module):
         return answer
 
 
-
-
-import torch.nn as nn
-import torch.nn.functional as F
-
-# TODO DELETE
-class resnet_(nn.Module):
-    def __init__(self):
-        super(resnet_, self).__init__()
-        self.model = models.resnet152(pretrained=True)
-
-        def save_output(module, input, output):
-            self.buffer = output
-
-        self.model.layer4.register_forward_hook(save_output)
-
-    def forward(self, x):
-        self.model(x)
-        return self.buffer
-
 class ImageConv(nn.Module):
     def __init__(self):
         super(ImageConv, self).__init__()
-        kernel1_size = 5
-        kernel2_size = 5
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=kernel1_size)
+        kernel1_size = 3
+        kernel2_size = 3
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=kernel1_size)
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=kernel2_size)
-        self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
-        self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
-        # self.fc1 = nn.Linear(16 * kernel1_size * kernel2_size, 120)
-        # self.fc2 = nn.Linear(120, 84)
-        # self.fc3 = nn.Linear(84, 10)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=kernel2_size)
+        # self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
+        # self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
+        self.dropout = nn.Dropout(p=0.3)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = self.pool(F.relu(self.conv3(x)))
-        x = self.pool(F.relu(self.conv4(x)))
-        # x = x.view(-1, 16 * 5 * 5)
-        # x = F.relu(self.fc1(x))
-        # x = F.relu(self.fc2(x))
-        # x = self.fc3(x)
+        x = F.relu(self.conv2(x))
+        # x = self.pool(F.relu(self.conv3(x)))
+        # x = self.pool(F.relu(self.conv4(x))) # + x_orig
+        x = self.dropout(x)
         return x
-
 
 
 class inception(nn.Module):
@@ -146,7 +115,7 @@ class inception(nn.Module):
         )
         # 1x1 conv -> 3x3 conv branch
         self.b1x3 = nn.Sequential(
-            nn.Conv2d(num_of_planes, nof3x3_1, kernel_size=1),
+            nn.Conv2d(in_channels=num_of_planes, out_channels=nof3x3_1, kernel_size=1),
             nn.BatchNorm2d(nof3x3_1),
             nn.ReLU(True),
             nn.Conv2d(nof3x3_1, nof3x3_out, kernel_size=3, padding=1),
@@ -159,7 +128,7 @@ class inception(nn.Module):
             nn.Conv2d(num_of_planes, nof5x5_1, kernel_size=1),
             nn.BatchNorm2d(nof5x5_1),
             nn.ReLU(True),
-            nn.Conv2d(nof5x5_1, nof5x5_out, kernel_size=3, padding=1),
+            nn.Conv2d(nof5x5_1, nof5x5_out, kernel_size=5, padding=2),
             nn.BatchNorm2d(nof5x5_out),
             nn.ReLU(True),
         )
@@ -190,7 +159,16 @@ class GoogLeNet(nn.Module):
             nn.ReLU(True),
         )
 
-        self.a3 = inception(30, 10,  4, 12, 4, 8, 8)
+        self.a3 = inception(num_of_planes=30,
+                            nof1x1=10,
+                            nof3x3_1=4,
+                            nof3x3_out=12,
+                            nof5x5_1=4,
+                            nof5x5_out=8,
+                            pool_planes=8)
+        # input num channels = num_of_planes
+        # dim 1 (num channels)  = nof1x1+nof3x3_out+nof5x5_out+pool_planes
+
         self.b3 = inception(38, 14,  6, 16, 4, 10, 10)
 
         self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
@@ -204,15 +182,17 @@ class GoogLeNet(nn.Module):
 
 
     def forward(self, x):
-        out = self.first_layer(x)
-        out = self.a3(out)
-        out = self.b3(out)
-        out = self.maxpool(out)
-        out = self.a4(out)
-        out = self.b4(out)
+        # x dim = [batch_size, 3, image_size, image_size]
+        out = self.first_layer(x)  # [batch_size, 30, image_size, image_size]
+        out = self.a3(out)  # [batch_size, 38, image_size, image_size]
+        out = self.b3(out)  # [batch_size, 50, image_size, image_size]
+        out = self.maxpool(out)  # [batch_size, 50, image_size/2, image_size/2]
+        out = self.a4(out)  # [batch_size, 64, image_size/2, image_size/2]
+        out = self.b4(out)  # [batch_size, 76, image_size/2, image_size/2]
         out = self.maxpool(out)
         out = self.a5(out)
         out = self.b5(out)
+        # out = out+x after conv to change dims - resnet
         out = self.dropout(out)
 
         return out
@@ -282,16 +262,16 @@ class Attention(nn.Module):
         return x
 
 
-def apply_attention(input, attention):
+def apply_attention(input_, attention):
     """ Apply any number of attention maps over the input. """
-    n, c = input.size()[:2]
+    n, c = input_.size()[:2]
     glimpses = attention.size(1)
 
     # flatten the spatial dims into the third dim, since we don't need to care about how they are arranged
-    input = input.view(n, 1, c, -1) # [n, 1, c, s]
+    input_ = input_.view(n, 1, c, -1) # [n, 1, c, s]
     attention = attention.view(n, glimpses, -1)
     attention = F.softmax(attention, dim=-1).unsqueeze(2) # [n, g, 1, s]
-    weighted = attention * input # [n, g, v, s]
+    weighted = attention * input_ # [n, g, v, s]
     weighted_mean = weighted.sum(dim=-1) # [n, g, v]
     return weighted_mean.view(n, -1)
 
