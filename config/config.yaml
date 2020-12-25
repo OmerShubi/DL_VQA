@@ -11,10 +11,11 @@ main:
   num_workers: 0 #todo increase?
   paths:
 #    base_path: '/datashare'
-#    base_path: './small_data'
-    base_path: './zip'
+    base_path: './small_data'
+#    base_path: './zip'
     logs: 'logs/'
-    vocab_path: './vocab_updated.json'
+#    vocab_path: './vocab.json'
+    vocab_path: './vocab_small.json'
   train_paths:
     questions: 'v2_OpenEnded_mscoco_train2014_questions.json'
     answers: 'v2_mscoco_train2014_annotations.json'
@@ -28,19 +29,24 @@ main:
 #    processed_imgs: './processed_val_images.h5'
     processed_imgs: './processed_val_images_small.h5'
 train:
-  question_features: 1024
-  image_features: 256
-  classifier_hidden_dim: 1024
-  attention_hidden_dim: 512
-  glimpses: 2
+  text:
+    question_features: 1024
+    embedding_features: 300
+    dropout: 0.3
+  image:
+    image_features: 256
+  attention:
+    hidden_dim: 512
+    glimpses: 2
+    dropout: 0.3
+  classifier:
+    hidden_dim: 1024
+    dropout: 0.3
+
   max_answers: 3000
-  embedding_features: 300
   image_size: 224 # scale shorter end of image to this size and centre crop
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
-  dropouts:
-    text: 0.3
-    attention: 0.3
-    classifier: 0.3
+
   num_epochs: 10
   batch_size: 16
   save_model: True

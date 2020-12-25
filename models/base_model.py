@@ -1,25 +1,12 @@
-"""
-    Example for a simple model
-"""
-
-from abc import ABCMeta
-from nets.fc import FCNet
-from torch import nn, Tensor
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.utils.rnn import pack_padded_sequence
 
-
 # TODO action item - speed
 """
-preprocess images beforehand. Save to file. If change image params-->rerun preprocessing.
 batch size - increase till memory crash
-Go over layers, number parameters in model
-model efficiency implementation - look at 1. for loops 2. Not sparse? such as max_question_length
-other code parts such as torch.backends.cudnn.benchmark = True
 
 """
 
@@ -33,15 +20,20 @@ class Net(nn.Module):
 
     def __init__(self, cfg, embedding_tokens):
         super(Net, self).__init__()
-        question_features = cfg['question_features']
-        image_features = cfg['image_features']
-        glimpses = cfg['glimpses']
-        dropouts = cfg['dropouts']
+        text_cfg = cfg['text']
+        image_cfg = cfg['image']
+        attention_cfg = cfg['attention']
+        classifier_cfg = cfg['classifier']
+
+        question_features = text_cfg['question_features']
+        image_features = image_cfg['image_features']
+        glimpses = attention_cfg['glimpses']
+
         self.text = TextProcessor(
             embedding_tokens=embedding_tokens,
-            embedding_features=cfg['embedding_features'],
+            embedding_features=text_cfg['embedding_features'],
             lstm_features=question_features,
-            drop=dropouts['text'],
+            drop=text_cfg['dropout'],
         )
         #TODO change
         # self.image = GoogLeNet()
@@ -50,29 +42,29 @@ class Net(nn.Module):
         self.attention = Attention(
             v_features=image_features,
             q_features=question_features,
-            mid_features=cfg['attention_hidden_dim'],
+            mid_features=attention_cfg['hidden_dim'],
             glimpses=glimpses,
-            drop=dropouts['attention'],
+            drop=attention_cfg['dropout'],
         )
 
         self.classifier = Classifier(
             in_features=glimpses * image_features + question_features,
-            mid_features=cfg['classifier_hidden_dim'],
+            mid_features=classifier_cfg['hidden_dim'],
             out_features=cfg['max_answers'],
-            drop=dropouts['classifier'],
+            drop=classifier_cfg['dropout'],
         )
 
         # xavier_uniform_ init for linear and conv layers
-        for m in self.modules(): # TODO need?
-            if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
-                init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    m.bias.data.zero_()
+        # for m in self.modules(): # TODO need?
+        #     if isinstance(m, nn.xavier_uniform_) or isinstance(m, nn.Conv2d):
+        #         init.xavier_uniform_(m.weight)
+        #         if m.bias is not None:
+        #             m.bias.data.zero_()
 
     def forward(self, v, q, q_len):
         v = self.image(v)
         q = self.text(q, list(q_len.data))
-        v = v / (v.norm(p=2, dim=1, keepdim=True).expand_as(v) + 1e-8) # TODO ??
+        v = v / (v.norm(p=2, dim=1, keepdim=True).expand_as(v) + 1e-8)
 
         attention = self.attention(v, q)
         v = apply_attention(v, attention)
@@ -221,17 +213,17 @@ class TextProcessor(nn.Module):
 
         # TODO need?
         # xavier_uniform_ init
-        self._init_lstm(self.lstm.weight_ih_l0)
-        self._init_lstm(self.lstm.weight_hh_l0)
-
-        self.lstm.bias_ih_l0.data.zero_()
-        self.lstm.bias_hh_l0.data.zero_()
-
-        init.xavier_uniform_(self.embedding.weight)
-
-    def _init_lstm(self, weight):
-        for w in weight.chunk(4, 0):
-            init.xavier_uniform_(w)
+    #     self._init_lstm(self.lstm.weight_ih_l0)
+    #     self._init_lstm(self.lstm.weight_hh_l0)
+    #
+    #     self.lstm.bias_ih_l0.data.zero_()
+    #     self.lstm.bias_hh_l0.data.zero_()
+    #
+    #     init.xavier_uniform_(self.embedding.weight)
+    #
+    # def _init_lstm(self, weight):
+    #     for w in weight.chunk(4, 0):
+    #         init.xavier_uniform_(w)
 
     def forward(self, q, q_len):
         embedded = self.embedding(q)
