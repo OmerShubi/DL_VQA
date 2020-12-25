@@ -33,6 +33,8 @@ train:
     question_features: 1024
     embedding_features: 300
     dropout: 0.3
+    num_lstm_layers: 1
+    bidirectional: False
   image:
     image_features: 256
   attention:

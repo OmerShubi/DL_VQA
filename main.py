@@ -11,7 +11,7 @@ from preprocessing import preprocess_vocab
 from preprocessing.data_preprocessing import VQA_dataset
 from preprocessing.preprocess_images import preprocess_images
 from train import train
-from models.base_model import Net
+from models.base_model import VqaNet
 from torch.utils.data import DataLoader
 from utils import main_utils, train_utils
 from utils.train_logger import TrainLogger
@@ -85,7 +85,7 @@ def main(cfg: DictConfig) -> None:
                             pin_memory=True)
 
     # Init model
-    model = Net(cfg['train'], embedding_tokens=train_loader.dataset.num_tokens)
+    model = VqaNet(cfg['train'], embedding_tokens=train_loader.dataset.num_tokens)
 
     if torch.cuda.is_available():
         model = model.cuda()

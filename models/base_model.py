@@ -11,15 +11,14 @@ batch size - increase till memory crash
 """
 
 
-class Net(nn.Module):
-    """ Re-implementation of ``Show, Ask, Attend, and Answer: A Strong Baseline For Visual Question Answering'' [0]
+class VqaNet(nn.Module):
+    """ Based on paper - Show, Ask, Attend, and Answer: A Strong Baseline For Visual Question Answering
 
-    [0]: https://arxiv.org/abs/1704.03162
     TODO use and delete https://github.com/Cyanogenoid/vqa-counting/blob/master/vqa-v2/model.py
     """
 
     def __init__(self, cfg, embedding_tokens):
-        super(Net, self).__init__()
+        super(VqaNet, self).__init__()
         text_cfg = cfg['text']
         image_cfg = cfg['image']
         attention_cfg = cfg['attention']
@@ -29,12 +28,13 @@ class Net(nn.Module):
         image_features = image_cfg['image_features']
         glimpses = attention_cfg['glimpses']
 
-        self.text = TextProcessor(
+        self.text = questionNet(
             embedding_tokens=embedding_tokens,
             embedding_features=text_cfg['embedding_features'],
             lstm_features=question_features,
             drop=text_cfg['dropout'],
-        )
+            num_lstm_layers=text_cfg['num_lstm_layers'],
+            bidirectional=text_cfg['bidirectional'])
         #TODO change
         # self.image = GoogLeNet()
         self.image = ImageConv()
@@ -64,7 +64,7 @@ class Net(nn.Module):
     def forward(self, v, q, q_len):
         v = self.image(v)
         q = self.text(q, list(q_len.data))
-        v = v / (v.norm(p=2, dim=1, keepdim=True).expand_as(v) + 1e-8)
+        v = v / (v.norm(p=2, dim=1, keepdim=True).expand_as(v) + 1e-12)
 
         attention = self.attention(v, q)
         v = apply_attention(v, attention)
@@ -200,19 +200,18 @@ class Classifier(nn.Sequential):
         self.add_module('lin2', nn.Linear(in_features=mid_features, out_features=out_features))
 
 
-class TextProcessor(nn.Module):
-    def __init__(self, embedding_tokens, embedding_features, lstm_features, drop=0.0):
-        super(TextProcessor, self).__init__()
+class questionNet(nn.Module):
+    def __init__(self, embedding_tokens, embedding_features, lstm_features, num_lstm_layers, drop, bidirectional):
+        super(questionNet, self).__init__()
         self.embedding = nn.Embedding(num_embeddings=embedding_tokens, embedding_dim=embedding_features, padding_idx=0)
         self.drop = nn.Dropout(drop)
         self.tanh = nn.Tanh()
         self.lstm = nn.LSTM(input_size=embedding_features,
                             hidden_size=lstm_features,
-                            num_layers=1) # TODO dropout, num of hidden layer, b-directional
-        self.features = lstm_features # TODO output lstm dimension ??
+                            num_layers=num_lstm_layers, dropout=drop, bidirectional=bidirectional)
 
-        # TODO need?
-        # xavier_uniform_ init
+    # TODO need?
+    # xavier_uniform_ init
     #     self._init_lstm(self.lstm.weight_ih_l0)
     #     self._init_lstm(self.lstm.weight_hh_l0)
     #
@@ -229,7 +228,7 @@ class TextProcessor(nn.Module):
         embedded = self.embedding(q)
         embedded_drop = self.drop(embedded)
         tanhed = self.tanh(embedded_drop)
-        packed = pack_padded_sequence(tanhed, q_len, batch_first=True, enforce_sorted=False) # TODO understand padding and packed object
+        packed = pack_padded_sequence(tanhed, q_len, batch_first=True, enforce_sorted=False)
         _, (_, c) = self.lstm(packed)
         return c.squeeze(0)
 
@@ -246,10 +245,10 @@ class Attention(nn.Module):
 
     def forward(self, v, q):
 
-        v = self.v_conv(self.drop(v)) # todo conv only on V
+        v = self.v_conv(self.drop(v))  # todo conv only on V - for report, doesnt match paper?
         q = self.q_lin(self.drop(q))
         q = tile_2d_over_nd(q, v)
-        x = self.relu(v + q) # todo why + and not cat?
+        x = self.relu(v + q) # todo why + and not cat? - for report, doesnt match paper?
         x = self.x_conv(self.drop(x))
         return x
 
@@ -260,11 +259,11 @@ def apply_attention(input_, attention):
     glimpses = attention.size(1)
 
     # flatten the spatial dims into the third dim, since we don't need to care about how they are arranged
-    input_ = input_.view(n, 1, c, -1) # [n, 1, c, s]
+    input_ = input_.view(n, 1, c, -1)  # [n, 1, c, s]
     attention = attention.view(n, glimpses, -1)
-    attention = F.softmax(attention, dim=-1).unsqueeze(2) # [n, g, 1, s]
-    weighted = attention * input_ # [n, g, v, s]
-    weighted_mean = weighted.sum(dim=-1) # [n, g, v]
+    attention = F.softmax(attention, dim=-1).unsqueeze(2)  # [n, g, 1, s]
+    weighted = attention * input_  # [n, g, v, s]
+    weighted_mean = weighted.sum(dim=-1)  # [n, g, v]
     return weighted_mean.view(n, -1)
 
 
@@ -277,4 +276,4 @@ def tile_2d_over_nd(feature_vector, feature_map):
     tiled = feature_vector.view(n, c, *([1] * spatial_size)).expand_as(feature_map)
     return tiled
 
-
+# TODO make look like own

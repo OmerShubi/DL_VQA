@@ -27,6 +27,8 @@ CFG_SCHEMA = {
             'question_features': int,
             'embedding_features': int,
             'dropout': float,
+            'num_lstm_layers': int,
+            'bidirectional': bool,
         },
         'image': {
             'image_features': int,
