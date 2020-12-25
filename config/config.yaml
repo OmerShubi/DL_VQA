@@ -11,9 +11,9 @@ main:
   num_workers: 0 #todo increase?
   paths:
 #    base_path: '/datashare'
-    base_path: './small_data'
+#    base_path: './small_data'
+    base_path: './zip'
     logs: 'logs/'
-    processed_imgs: './resnet-14x14.h5'
     vocab_path: './vocab_updated.json'
   train_paths:
     questions: 'v2_OpenEnded_mscoco_train2014_questions.json'

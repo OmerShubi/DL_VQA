@@ -10,7 +10,6 @@ CFG_SCHEMA = {
         'paths': {
             'base_path': str,
             'logs': str,
-            'processed_imgs': str,
             'vocab_path': str, },
         'train_paths': {
             'questions': str,

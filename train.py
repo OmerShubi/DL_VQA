@@ -5,6 +5,7 @@ Here, we will run everything that is related to the training procedure.
 import time
 import torch
 import torch.nn as nn
+import numpy as np
 
 from tqdm import tqdm
 from utils import train_utils
@@ -49,7 +50,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
                                                 step_size=train_params.lr_step_size,
                                                 gamma=train_params.lr_gamma)
 
-    log_softmax = nn.LogSoftmax(dim=1).cuda() # TODO change
+    log_softmax = nn.LogSoftmax(dim=1).cuda()
 
     for epoch in range(train_params.num_epochs):
         t = time.time()
@@ -59,7 +60,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             batch_loss, batch_score = run_batch(model,
                                                 log_softmax,
                                                 batch_data,
-                                                train_params.max_answers, type_='Train')# TODO make sure grad works
+                                                train_params.max_answers, type_='Train')
 
             # Optimization step
             optimizer.zero_grad()
@@ -70,9 +71,9 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             # metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
             # metrics['count_norm'] += 1
 
-            metrics['train_score'] += batch_score.cpu().item() # todo check if cpu item necessary
+            metrics['train_score'] += batch_score
 
-            metrics['train_loss'] += batch_loss.item()  #* x.size(0)
+            metrics['train_loss'] += batch_loss
 
             # Report model to tensorboard
             # if epoch == 0 and i == 0:
@@ -133,7 +134,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
         batch_loss, batch_score = run_batch(model,
                                             log_softmax,
                                             batch_data,
-                                            max_answers, type_='Val') # TODO make sure no grad works
+                                            max_answers, type_='Val')
         loss += batch_loss
         score += batch_score
     loss /= len(dataloader)
@@ -149,7 +150,6 @@ def run_batch(model, log_softmax, batch_data, max_answers, type_):
         q = q.cuda()
         a_values = a_values.cuda()
         q_len = q_len.cuda()
-        # todo make sure requires_grad is correct
 
     y_hat = model(v, q, q_len)
     nll = -log_softmax(y_hat)
@@ -157,11 +157,8 @@ def run_batch(model, log_softmax, batch_data, max_answers, type_):
     # Sum is over all correct answers
     # mean is over batch
     batch_size = y_hat.shape[0]
-    batch_indices = []  # TODO cleaner way
-    for i, a_len in enumerate(a_length):
-        batch_indices.extend([i] * a_len)  # batch indices are the 'x' indices equal to the number of actual different answers in each entry
-        # a_indices = a.coalesce().indices().cpu().numpy()
-    # a_values = a.coalesce().values()
+    batch_indices = np.repeat(range(batch_size), a_length)
+
     a_indices_flat = a_indices.flatten()
     # remove indices that where part of padding, and adjust indices to match nll (start from 0 instead of 1)
     a_indices_flat_nonzero_adjusted = a_indices_flat[a_indices_flat.nonzero()].flatten().cpu().numpy() - 1
@@ -174,7 +171,6 @@ def run_batch(model, log_softmax, batch_data, max_answers, type_):
     #
     batch_loss = (nll_relevant * a_values_flat_nonzero).sum() / batch_size
     # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
-    batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers)))  # TODO make sure calculation is correct according to Itai.
-    # TODO fix ROUND!
-    # print(f"{type_} - Batch Loss:{round(batch_loss,3)}, Batch Acc:{round(batch_score/10,4)}")
+    batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers)))
+    # print(f"{type_} - Batch Loss:{batch_loss,3}, Batch Acc:{batch_score/10,4}")
     return batch_loss, batch_score

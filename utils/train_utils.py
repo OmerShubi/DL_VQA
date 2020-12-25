@@ -19,7 +19,7 @@ def batch_accuracy(predicted, true):
     indices_for_slicing = indices_nonzero.cpu().numpy()
     relevant_values = values[indices_for_slicing]
     indices_nonzero[1] = indices[indices_for_slicing]-1
-    true_sparse = torch.sparse_coo_tensor(indices_nonzero, relevant_values, size)
+    true_sparse = torch.sparse_coo_tensor(indices_nonzero.cuda(), relevant_values, size)
     agreeing = torch.tensor([true_sparse[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
     # todo find how to do without for loop
 

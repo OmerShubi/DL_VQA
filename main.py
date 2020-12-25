@@ -31,9 +31,7 @@ def main(cfg: DictConfig) -> None:
     logger.write(OmegaConf.to_yaml(cfg))
 
     # Set seed for results reproduction
-    main_utils.set_seed(cfg['main']['seed'])  # TODO make sure
-
-    # todo replace resnet - https://github.com/shilrley6/Faster-R-CNN-with-model-pretrained-on-Visual-Genome
+    main_utils.set_seed(cfg['main']['seed'])
 
     vocab_path = cfg['main']['paths']['vocab_path']
     if not os.path.exists(vocab_path):
