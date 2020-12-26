@@ -17,7 +17,7 @@ class VQA_dataset(torch.utils.data.Dataset):
 
     def __init__(self, data_paths, other_paths, logger, answerable_only=False):
         super(VQA_dataset, self).__init__()
-        self.semi_dense = namedtuple('semi_dense', ['indices', 'values', 'size'])
+        # self.semi_dense = namedtuple('semi_dense', ['indices', 'values', 'size'])
 
         base_path = other_paths['base_path']
         questions_path = os.path.join(base_path, data_paths['questions'])
@@ -126,7 +126,7 @@ class VQA_dataset(torch.utils.data.Dataset):
         # get unique indices and how many counts of each
         unique_indices, counts = np.unique(answers_with_id_from_vocab, return_counts=True)
         # return torch.sparse_coo_tensor(indices=torch.tensor([unique_indices]), values=torch.tensor(counts), size=(len(self.answer_to_index),))
-        return self.semi_dense(indices=torch.tensor(unique_indices), values=torch.tensor(counts), size=len(unique_indices))
+        return torch.tensor(unique_indices), torch.tensor(counts), len(unique_indices)
 
     def _load_image(self, image_id):
         """ Load an image """

@@ -36,8 +36,9 @@ class VqaNet(nn.Module):
             num_lstm_layers=text_cfg['num_lstm_layers'],
             bidirectional=text_cfg['bidirectional'])
         #TODO change
-        self.image = GoogLeNet()
-        # self.image = ImageNet()
+        # self.image = GoogLeNet()
+        # self.image = VGGNet()
+        self.image = BasicConvNet(image_cfg)
 
         self.attention = Attention(
             v_features=image_features,
@@ -75,16 +76,9 @@ class VqaNet(nn.Module):
         return answer
 
 
-class ImageNet(nn.Module):
+class VGGNet(nn.Module):
     def __init__(self):
-        super(ImageNet, self).__init__()
-        kernel1_size = 3
-        kernel2_size = 3
-        # self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=kernel1_size)
-        # self.pool = nn.MaxPool2d(2, 2)
-        # self.conv2 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=kernel2_size)
-        # self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
-        # self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
+        super(VGGNet, self).__init__()
         self.net = nn.Sequential(nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
                                  nn.BatchNorm2d(64),
                                  nn.ReLU(True),
@@ -102,15 +96,45 @@ class ImageNet(nn.Module):
                                  nn.BatchNorm2d(256),
                                  nn.ReLU(True),
                                  nn.Dropout(p=0.3))
-        # self.dropout = nn.Dropout(p=0.3)
-        # batch X num channels X H X W
+
     def forward(self, x):
         x= self.net(x)
-        # x = F.relu(self.conv1(x))
-        # x = self.pool(F.relu(self.conv2(x)))
-        # x = F.relu(self.conv3(x))
-        # x = F.relu(self.conv4(x)) # + x_orig
-        # x = self.dropout(x)
+
+        return x
+
+
+class BasicConvNet(nn.Sequential):
+    def __init__(self, image_cng):
+        super(BasicConvNet, self).__init__()
+        kernel_sizes = image_cng['kernel_sizes']
+        num_channels = image_cng['num_channels']
+        for i, k in enumerate(kernel_sizes):
+            self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=k))
+            self.add_module(f'relu{i}', nn.ReLU())
+            self.add_module(f'maxpool{i}', nn.MaxPool2d(2, 2))
+
+        self.add_module('drop', nn.Dropout(image_cng['dropout']))
+
+
+class CNN(nn.Module):
+    def __init__(self):
+        super(CNN, self).__init__()
+        kernel1_size = 3
+        kernel2_size = 3
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=kernel1_size)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=kernel2_size)
+        # self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
+        # self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
+        self.dropout = nn.Dropout(p=0.3)
+        # batch X num channels X H X W
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x)) # + x_orig
+        x = self.dropout(x)
         return x
 
 
@@ -172,43 +196,36 @@ class GoogLeNet(nn.Module):
         # output = nof1x1+nof3x3_out+nof5x5_out+pool_planes
 
         self.a1 = inception(num_of_planes=30,
-                            nof1x1=10,
-                            nof3x3_1=4,
-                            nof3x3_out=12,
-                            nof5x5_1=4,
-                            nof5x5_out=8,
-                            pool_planes=8)
-
-        self.a2 = inception(num_of_planes=38,
-                            nof1x1=14,
-                            nof3x3_1=6,
-                            nof3x3_out=16,
-                            nof5x5_1=4,
-                            nof5x5_out=10,
-                            pool_planes=10)
-
-        self.a3 = inception(num_of_planes=50,
                             nof1x1=20,
-                            nof3x3_1=8,
-                            nof3x3_out=20,
-                            nof5x5_1=4,
-                            nof5x5_out=12,
-                            pool_planes=12)
-
-        self.a4 = inception(num_of_planes=64,
-                            nof1x1=22,
-                            nof3x3_1=9,
+                            nof3x3_1=4,
                             nof3x3_out=24,
                             nof5x5_1=4,
-                            nof5x5_out=14,
+                            nof5x5_out=16,
                             pool_planes=16)
-        # self.a4 = inception(num_of_planes=64,
-        #                     nof1x1=64,
-        #                     nof3x3_1=9,
-        #                     nof3x3_out=64,
-        #                     nof5x5_1=4,
-        #                     nof5x5_out=64,
-        #                     pool_planes=64)
+
+        self.a2 = inception(num_of_planes=76,
+                            nof1x1=28,
+                            nof3x3_1=6,
+                            nof3x3_out=32,
+                            nof5x5_1=4,
+                            nof5x5_out=20,
+                            pool_planes=20)
+
+        self.a3 = inception(num_of_planes=100,
+                            nof1x1=40,
+                            nof3x3_1=8,
+                            nof3x3_out=40,
+                            nof5x5_1=4,
+                            nof5x5_out=24,
+                            pool_planes=24)
+
+        self.a4 = inception(num_of_planes=128,
+                            nof1x1=64,
+                            nof3x3_1=9,
+                            nof3x3_out=64,
+                            nof5x5_1=4,
+                            nof5x5_out=64,
+                            pool_planes=64)
 
         self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
         self.dropout = nn.Dropout(p=0.3)
@@ -226,8 +243,6 @@ class GoogLeNet(nn.Module):
         out = self.dropout(out)
 
         return out
-
-
 
 
 class questionNet(nn.Module):

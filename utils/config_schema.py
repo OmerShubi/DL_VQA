@@ -12,11 +12,13 @@ CFG_SCHEMA = {
             'logs': str,
             'vocab_path': str, },
         'train_paths': {
+            'vqaDataset': str,
             'questions': str,
             'answers': str,
             'imgs': str,
             'processed_imgs': str},
         'val_paths': {
+            'vqaDataset': str,
             'questions': str,
             'answers': str,
             'imgs': str,
@@ -32,6 +34,9 @@ CFG_SCHEMA = {
         },
         'image': {
             'image_features': int,
+            'kernel_sizes': list,
+            'dropout': int,
+            'num_channels': list,
         },
         'attention': {
             'hidden_dim': int,
