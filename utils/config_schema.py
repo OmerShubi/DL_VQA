@@ -7,22 +7,41 @@ CFG_SCHEMA = {
         'experiment_name_prefix': str,
         'seed': int,
         'num_workers': int,
-        'paths': {
-            'base_path': str,
-            'logs': str,
-            'vocab_path': str, },
-        'train_paths': {
-            'vqaDataset': str,
-            'questions': str,
-            'answers': str,
-            'imgs': str,
-            'processed_imgs': str},
-        'val_paths': {
-            'vqaDataset': str,
-            'questions': str,
-            'answers': str,
-            'imgs': str,
-            'processed_imgs': str}
+        'use_full': bool,
+        'full':
+            {'paths': {
+                'base_path': str,
+                'logs': str,
+                'vocab_path': str, },
+            'train_paths': {
+                'vqaDataset': str,
+                'questions': str,
+                'answers': str,
+                'imgs': str,
+                'processed_imgs': str},
+            'val_paths': {
+                'vqaDataset': str,
+                'questions': str,
+                'answers': str,
+                'imgs': str,
+                'processed_imgs': str}},
+        'small':
+            {'paths': {
+                'base_path': str,
+                'logs': str,
+                'vocab_path': str, },
+            'train_paths': {
+                'vqaDataset': str,
+                'questions': str,
+                'answers': str,
+                'imgs': str,
+                'processed_imgs': str},
+            'val_paths': {
+                'vqaDataset': str,
+                'questions': str,
+                'answers': str,
+                'imgs': str,
+                'processed_imgs': str}}
     },
     'train': {
         'text': {
@@ -35,7 +54,7 @@ CFG_SCHEMA = {
         'image': {
             'image_features': int,
             'kernel_sizes': list,
-            'dropout': int,
+            'dropout': float,
             'num_channels': list,
         },
         'attention': {
@@ -53,6 +72,7 @@ CFG_SCHEMA = {
         'image_size': int,
         'central_fraction': float,
 
+        'n_epochs_stop': int,
         'num_epochs': int,
         'batch_size': int,
         'save_model': bool,

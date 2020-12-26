@@ -40,8 +40,8 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
     :return:
     """
     metrics = train_utils.get_zeroed_metrics_dict()
-    best_eval_score = 0
-
+    best_eval_score = torch.tensor(0.0)
+    epochs_no_improve = 0
     # Create optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=train_params.lr)
 
@@ -86,9 +86,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
         metrics['train_loss'] /= len(train_loader)
 
         metrics['train_score'] /= len(train_loader.dataset)
-        # metrics['train_score'] *= 100
-
-        # norm = metrics['total_norm'] / metrics['count_norm']
+        metrics['train_score'] *= 100
 
         model.train(False)
         metrics['eval_score'], metrics['eval_loss'] = evaluate(model, eval_loader, train_params.max_answers)
@@ -110,9 +108,16 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
         logger.report_scalars(scalars, epoch)
 
         if metrics['eval_score'] > best_eval_score:
+            epochs_no_improve = 0
             best_eval_score = metrics['eval_score']
             if train_params.save_model:
                 logger.save_model(model, epoch, optimizer)
+        else:
+            epochs_no_improve += 1
+
+        if epoch > 3 and epochs_no_improve == train_params.n_epochs_stop:
+            logger.write('Early stopping!')
+            return get_metrics(best_eval_score, metrics['eval_score'], metrics['train_loss'])
 
     return get_metrics(best_eval_score, metrics['eval_score'], metrics['train_loss'])
 
@@ -125,7 +130,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
     :param dataloader: dataloader to evaluate the model on
     :return: tuple of (accuracy, loss) values
     """
-    score = 0
+    score = torch.tensor(0.0)
     loss = 0
 
     log_softmax = nn.LogSoftmax(dim=1).cuda()
@@ -139,9 +144,10 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
         score += batch_score
     loss /= len(dataloader)
     score /= len(dataloader.dataset)
-    # score *= 100
+    score *= 100
 
     return score, loss
+
 
 def run_batch(model, log_softmax, batch_data, max_answers, type_):
     v, q, a_indices, a_values, a_length, idx, q_len = batch_data

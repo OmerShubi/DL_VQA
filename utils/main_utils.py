@@ -15,7 +15,7 @@ from typing import Dict
 from utils.types import PathT
 from collections import MutableMapping
 from utils.config_schema import CFG_SCHEMA
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, listconfig
 
 
 def get_model_string(model: nn.Module) -> str:
@@ -93,7 +93,10 @@ def _flatten_dict(d: MutableMapping, parent_key: str = '', sep: str = '_') -> Di
 
     for k, v in d.items():
         new_key = parent_key + sep + k if parent_key else k
-        if isinstance(v, MutableMapping):
+        if isinstance(v, listconfig.ListConfig):
+            for indx, elem in enumerate(v):
+                items.append((new_key + str(indx), elem))
+        elif isinstance(v, MutableMapping):
             items.extend(_flatten_dict(v, new_key, sep=sep).items())
         else:
             items.append((new_key, v))

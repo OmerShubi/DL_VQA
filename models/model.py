@@ -4,12 +4,6 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn.utils.rnn import pack_padded_sequence
 
-# TODO action item - speed
-"""
-batch size - increase till memory crash
-
-"""
-
 
 class VqaNet(nn.Module):
     """ Based on paper - Show, Ask, Attend, and Answer: A Strong Baseline For Visual Question Answering
@@ -24,14 +18,16 @@ class VqaNet(nn.Module):
         attention_cfg = cfg['attention']
         classifier_cfg = cfg['classifier']
 
-        question_features = text_cfg['question_features']
-        image_features = image_cfg['image_features']
+        lstm_out_features = text_cfg['question_features']
+        if text_cfg['bidirectional']:
+            lstm_out_features *= 2
         glimpses = attention_cfg['glimpses']
+        image_features = image_cfg['image_features']
 
         self.text = questionNet(
             embedding_tokens=embedding_tokens,
             embedding_features=text_cfg['embedding_features'],
-            lstm_features=question_features,
+            lstm_features=text_cfg['question_features'],
             drop=text_cfg['dropout'],
             num_lstm_layers=text_cfg['num_lstm_layers'],
             bidirectional=text_cfg['bidirectional'])
@@ -42,14 +38,14 @@ class VqaNet(nn.Module):
 
         self.attention = Attention(
             v_features=image_features,
-            q_features=question_features,
+            q_features=lstm_out_features,
             mid_features=attention_cfg['hidden_dim'],
             glimpses=glimpses,
             drop=attention_cfg['dropout'],
         )
 
         self.classifier = Classifier(
-            in_features=glimpses * image_features + question_features,
+            in_features=glimpses * image_features + lstm_out_features,
             mid_features=classifier_cfg['hidden_dim'],
             out_features=cfg['max_answers'],
             drop=classifier_cfg['dropout'],
@@ -183,7 +179,6 @@ class inception(nn.Module):
         return torch.cat([b1, b2, b3, b4], 1)  # concatenating the convolutions' branches
 
 
-# the convolutional level
 class GoogLeNet(nn.Module):
     def __init__(self):
         super(GoogLeNet, self).__init__()
@@ -275,7 +270,7 @@ class questionNet(nn.Module):
         tanhed = self.tanh(embedded_drop)
         packed = pack_padded_sequence(tanhed, q_len, batch_first=True, enforce_sorted=False)
         _, (_, c) = self.lstm(packed)
-        return c.squeeze(0)
+        return c.transpose(0, 1).flatten(1)
 
 
 class Attention(nn.Module):
