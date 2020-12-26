@@ -57,6 +57,7 @@ class TrainParams:
     This class holds all train parameters.
     Add here variable in case configuration file is modified.
     """
+    n_epochs_stop: int
     num_epochs: int
     lr: float
     lr_decay: float
@@ -69,6 +70,7 @@ class TrainParams:
         """
         :param kwargs: configuration file
         """
+        self.n_epochs_stop = kwargs['n_epochs_stop']
         self.num_epochs = kwargs['num_epochs']
 
         self.lr = kwargs['lr']['lr_value']

@@ -22,7 +22,8 @@ class VqaNet(nn.Module):
         if text_cfg['bidirectional']:
             lstm_out_features *= 2
         glimpses = attention_cfg['glimpses']
-        image_features = image_cfg['image_features']
+        # image_features = image_cfg['image_features']
+        image_features = image_cfg['num_channels'][-1]
 
         self.text = questionNet(
             embedding_tokens=embedding_tokens,
@@ -72,6 +73,133 @@ class VqaNet(nn.Module):
         return answer
 
 
+
+
+class BasicConvNet(nn.Sequential):
+    def __init__(self, image_cng):
+        super(BasicConvNet, self).__init__()
+        kernel_size = image_cng['kernel_size']
+        num_channels = image_cng['num_channels']
+        for i in range(len(num_channels)-1):
+            self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=kernel_size))
+            self.add_module(f'relu{i}', nn.ReLU())
+            self.add_module(f'maxpool{i}', nn.MaxPool2d(2, 2))
+
+        self.add_module('drop', nn.Dropout(image_cng['dropout']))
+
+
+
+class questionNet(nn.Module):
+    def __init__(self, embedding_tokens, embedding_features, lstm_features, num_lstm_layers, drop, bidirectional):
+        super(questionNet, self).__init__()
+        self.embedding = nn.Embedding(num_embeddings=embedding_tokens, embedding_dim=embedding_features, padding_idx=0)
+        self.drop = nn.Dropout(drop)
+        self.tanh = nn.Tanh()
+        self.lstm = nn.LSTM(input_size=embedding_features,
+                            hidden_size=lstm_features,
+                            num_layers=num_lstm_layers, dropout=drop, bidirectional=bidirectional)
+
+    # TODO need?
+    # xavier_uniform_ init
+    #     self._init_lstm(self.lstm.weight_ih_l0)
+    #     self._init_lstm(self.lstm.weight_hh_l0)
+    #
+    #     self.lstm.bias_ih_l0.data.zero_()
+    #     self.lstm.bias_hh_l0.data.zero_()
+    #
+    #     init.xavier_uniform_(self.embedding.weight)
+    #
+    # def _init_lstm(self, weight):
+    #     for w in weight.chunk(4, 0):
+    #         init.xavier_uniform_(w)
+
+    def forward(self, q, q_len):
+        embedded = self.embedding(q)
+        embedded_drop = self.drop(embedded)
+        tanhed = self.tanh(embedded_drop)
+        packed = pack_padded_sequence(tanhed, q_len, batch_first=True, enforce_sorted=False)
+        _, (_, c) = self.lstm(packed)
+        return c.transpose(0, 1).flatten(1)
+
+
+class Attention(nn.Module):
+    def __init__(self, v_features, q_features, mid_features, glimpses, drop=0.0):
+        super(Attention, self).__init__()
+        self.v_conv = nn.Conv2d(in_channels=v_features, out_channels=mid_features, kernel_size=1, bias=False)  # let self.lin take care of bias
+        self.q_lin = nn.Linear(in_features=q_features, out_features=mid_features)
+        self.x_conv = nn.Conv2d(in_channels=mid_features, out_channels=glimpses, kernel_size=1)
+
+        self.drop = nn.Dropout(drop)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, v, q):
+
+        v = self.v_conv(self.drop(v))  # todo conv only on V - for report, doesnt match paper?
+        q = self.q_lin(self.drop(q))
+        q = tile_2d_over_nd(q, v)
+        x = self.relu(v + q) # todo why + and not cat? - for report, doesnt match paper?
+        x = self.x_conv(self.drop(x))
+        return x
+
+
+class Classifier(nn.Sequential):
+    def __init__(self, in_features, mid_features, out_features, drop=0.0):
+        super(Classifier, self).__init__()
+        self.add_module('drop1', nn.Dropout(drop))
+        self.add_module('lin1', nn.Linear(in_features=in_features, out_features=mid_features))
+        self.add_module('relu', nn.ReLU())
+        self.add_module('drop2', nn.Dropout(drop))
+        self.add_module('lin2', nn.Linear(in_features=mid_features, out_features=out_features))
+
+
+def apply_attention(input_, attention):
+    """ Apply any number of attention maps over the input. """
+    n, c = input_.size()[:2]
+    glimpses = attention.size(1)
+
+    # flatten the spatial dims into the third dim, since we don't need to care about how they are arranged
+    input_ = input_.view(n, 1, c, -1)  # [n, 1, c, s]
+    attention = attention.view(n, glimpses, -1)
+    attention = F.softmax(attention, dim=-1).unsqueeze(2)  # [n, g, 1, s]
+    weighted = attention * input_  # [n, g, v, s]
+    weighted_mean = weighted.sum(dim=-1)  # [n, g, v]
+    return weighted_mean.view(n, -1)
+
+
+def tile_2d_over_nd(feature_vector, feature_map):
+    """ Repeat the same feature vector over all spatial positions of a given feature map.
+        The feature vector should have the same batch size and number of features as the feature map.
+    """
+    n, c = feature_vector.size()
+    spatial_size = feature_map.dim() - 2
+    tiled = feature_vector.view(n, c, *([1] * spatial_size)).expand_as(feature_map)
+    return tiled
+
+# TODO make look like own
+
+
+# TODO delete if no use
+class CNN(nn.Module):
+    def __init__(self):
+        super(CNN, self).__init__()
+        kernel1_size = 3
+        kernel2_size = 3
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=kernel1_size)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=kernel2_size)
+        # self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
+        # self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
+        self.dropout = nn.Dropout(p=0.3)
+        # batch X num channels X H X W
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x)) # + x_orig
+        x = self.dropout(x)
+        return x
+
 class VGGNet(nn.Module):
     def __init__(self):
         super(VGGNet, self).__init__()
@@ -96,41 +224,6 @@ class VGGNet(nn.Module):
     def forward(self, x):
         x= self.net(x)
 
-        return x
-
-
-class BasicConvNet(nn.Sequential):
-    def __init__(self, image_cng):
-        super(BasicConvNet, self).__init__()
-        kernel_sizes = image_cng['kernel_sizes']
-        num_channels = image_cng['num_channels']
-        for i, k in enumerate(kernel_sizes):
-            self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=k))
-            self.add_module(f'relu{i}', nn.ReLU())
-            self.add_module(f'maxpool{i}', nn.MaxPool2d(2, 2))
-
-        self.add_module('drop', nn.Dropout(image_cng['dropout']))
-
-
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-        kernel1_size = 3
-        kernel2_size = 3
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=kernel1_size)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=kernel2_size)
-        # self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
-        # self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
-        self.dropout = nn.Dropout(p=0.3)
-        # batch X num channels X H X W
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x)) # + x_orig
-        x = self.dropout(x)
         return x
 
 
@@ -239,91 +332,3 @@ class GoogLeNet(nn.Module):
 
         return out
 
-
-class questionNet(nn.Module):
-    def __init__(self, embedding_tokens, embedding_features, lstm_features, num_lstm_layers, drop, bidirectional):
-        super(questionNet, self).__init__()
-        self.embedding = nn.Embedding(num_embeddings=embedding_tokens, embedding_dim=embedding_features, padding_idx=0)
-        self.drop = nn.Dropout(drop)
-        self.tanh = nn.Tanh()
-        self.lstm = nn.LSTM(input_size=embedding_features,
-                            hidden_size=lstm_features,
-                            num_layers=num_lstm_layers, dropout=drop, bidirectional=bidirectional)
-
-    # TODO need?
-    # xavier_uniform_ init
-    #     self._init_lstm(self.lstm.weight_ih_l0)
-    #     self._init_lstm(self.lstm.weight_hh_l0)
-    #
-    #     self.lstm.bias_ih_l0.data.zero_()
-    #     self.lstm.bias_hh_l0.data.zero_()
-    #
-    #     init.xavier_uniform_(self.embedding.weight)
-    #
-    # def _init_lstm(self, weight):
-    #     for w in weight.chunk(4, 0):
-    #         init.xavier_uniform_(w)
-
-    def forward(self, q, q_len):
-        embedded = self.embedding(q)
-        embedded_drop = self.drop(embedded)
-        tanhed = self.tanh(embedded_drop)
-        packed = pack_padded_sequence(tanhed, q_len, batch_first=True, enforce_sorted=False)
-        _, (_, c) = self.lstm(packed)
-        return c.transpose(0, 1).flatten(1)
-
-
-class Attention(nn.Module):
-    def __init__(self, v_features, q_features, mid_features, glimpses, drop=0.0):
-        super(Attention, self).__init__()
-        self.v_conv = nn.Conv2d(in_channels=v_features, out_channels=mid_features, kernel_size=1, bias=False)  # let self.lin take care of bias
-        self.q_lin = nn.Linear(in_features=q_features, out_features=mid_features)
-        self.x_conv = nn.Conv2d(in_channels=mid_features, out_channels=glimpses, kernel_size=1)
-
-        self.drop = nn.Dropout(drop)
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, v, q):
-
-        v = self.v_conv(self.drop(v))  # todo conv only on V - for report, doesnt match paper?
-        q = self.q_lin(self.drop(q))
-        q = tile_2d_over_nd(q, v)
-        x = self.relu(v + q) # todo why + and not cat? - for report, doesnt match paper?
-        x = self.x_conv(self.drop(x))
-        return x
-
-
-class Classifier(nn.Sequential):
-    def __init__(self, in_features, mid_features, out_features, drop=0.0):
-        super(Classifier, self).__init__()
-        self.add_module('drop1', nn.Dropout(drop))
-        self.add_module('lin1', nn.Linear(in_features=in_features, out_features=mid_features))
-        self.add_module('relu', nn.ReLU())
-        self.add_module('drop2', nn.Dropout(drop))
-        self.add_module('lin2', nn.Linear(in_features=mid_features, out_features=out_features))
-
-
-def apply_attention(input_, attention):
-    """ Apply any number of attention maps over the input. """
-    n, c = input_.size()[:2]
-    glimpses = attention.size(1)
-
-    # flatten the spatial dims into the third dim, since we don't need to care about how they are arranged
-    input_ = input_.view(n, 1, c, -1)  # [n, 1, c, s]
-    attention = attention.view(n, glimpses, -1)
-    attention = F.softmax(attention, dim=-1).unsqueeze(2)  # [n, g, 1, s]
-    weighted = attention * input_  # [n, g, v, s]
-    weighted_mean = weighted.sum(dim=-1)  # [n, g, v]
-    return weighted_mean.view(n, -1)
-
-
-def tile_2d_over_nd(feature_vector, feature_map):
-    """ Repeat the same feature vector over all spatial positions of a given feature map.
-        The feature vector should have the same batch size and number of features as the feature map.
-    """
-    n, c = feature_vector.size()
-    spatial_size = feature_map.dim() - 2
-    tiled = feature_vector.view(n, c, *([1] * spatial_size)).expand_as(feature_map)
-    return tiled
-
-# TODO make look like own

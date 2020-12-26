@@ -28,6 +28,14 @@ def get_metrics(best_eval_score: float, eval_score: float, train_loss: float) ->
             'Metrics/LastLoss': train_loss}
 
 
+def update_learning_rate(optimizer, iteration, initial_lr):
+    lr_halflife = 50000
+    lr = initial_lr * 0.5 ** (float(iteration) / lr_halflife)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+
+
 def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, train_params: TrainParams,
           logger: TrainLogger) -> Metrics:
     """
@@ -39,6 +47,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
     :param logger:
     :return:
     """
+    total_iterations = 0
     metrics = train_utils.get_zeroed_metrics_dict()
     best_eval_score = torch.tensor(0.0)
     epochs_no_improve = 0
@@ -46,9 +55,9 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
     optimizer = torch.optim.Adam(model.parameters(), lr=train_params.lr)
 
     # Create learning rate scheduler
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                step_size=train_params.lr_step_size,
-                                                gamma=train_params.lr_gamma)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+    #                                             step_size=train_params.lr_step_size,
+    #                                             gamma=train_params.lr_gamma)
 
     log_softmax = nn.LogSoftmax(dim=1).cuda()
 
@@ -64,8 +73,11 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
 
             # Optimization step
             optimizer.zero_grad()
+            # Learning rate scheduler step
+            update_learning_rate(optimizer=optimizer, iteration=total_iterations, initial_lr=train_params.lr)
             batch_loss.backward()
             optimizer.step()
+            total_iterations += 1
 
             # Calculate metrics
             # metrics['total_norm'] += nn.utils.clip_grad_norm_(model.parameters(), train_params.grad_clip)
@@ -79,8 +91,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             # if epoch == 0 and i == 0:
             # logger.report_graph(model, [v, q, q_len])
 
-        # Learning rate scheduler step
-        scheduler.step()
+        # scheduler.step()
 
         # Calculate metrics
         metrics['train_loss'] /= len(train_loader)

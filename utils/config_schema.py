@@ -52,8 +52,8 @@ CFG_SCHEMA = {
             'bidirectional': bool,
         },
         'image': {
-            'image_features': int,
-            'kernel_sizes': list,
+            # 'image_features': int,
+            'kernel_size': int,
             'dropout': float,
             'num_channels': list,
         },
