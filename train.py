@@ -119,6 +119,13 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
 
         logger.report_scalars(scalars, epoch)
 
+        scalars_2perplot = {'Accuracy': {'Train':metrics['train_score'],
+                                'Validation': metrics['eval_score']},
+                   'Loss': {'Train':metrics['train_loss'],
+                            'Validation': metrics['eval_loss']}}
+
+        logger.report_scalars_same_plot(scalars_2perplot, epoch)
+
         if metrics['eval_score'] > best_eval_score:
             epochs_no_improve = 0
             best_eval_score = metrics['eval_score']

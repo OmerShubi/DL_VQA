@@ -9,7 +9,7 @@ main:
   seed: 1
   num_workers: 3 #todo increase?
   use_full: False
-  start_from_pretrained_model: True # If True make sure not using AX!!! and make sure model actually exists!
+  start_from_pretrained_model: False # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
       pretrained_model_path: './model.pth'

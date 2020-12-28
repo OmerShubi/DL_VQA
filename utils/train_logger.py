@@ -75,6 +75,15 @@ class TrainLogger:
         """
         self.tensorboard_writer.add_scalar(tag, scalar_value, step)
 
+    def report_scalar_same_plot(self, tag: str, scalar_value: float, step: int) -> None:
+        """
+        Report a scalar to tensorboard
+        :param tag: report the scalar under tag
+        :param scalar_value:
+        :param step: epoch
+        """
+        self.tensorboard_writer.add_scalars(tag, scalar_value, step)
+
     def report_graph(self, model: nn.Module, model_input: InputSample) -> None:
         """
         Report a model structure to tensorboard
@@ -147,6 +156,15 @@ class TrainLogger:
         """
         for scalar, scalar_value in scalars.items():
             self.report_scalar(scalar, scalar_value, epoch)
+
+    def report_scalars_same_plot(self, scalars, epoch):
+        """
+        Report batch of scalars
+        :param scalars: {scalar_key: scalar_value}. For instance: {'Accuracy_train': 99.32}
+        :param epoch:
+        """
+        for scalar, scalar_value in scalars.items():
+            self.report_scalar_same_plot(scalar, scalar_value, epoch)
 
     def write_epoch_statistics(self, epoch: int, epoch_time: float, train_loss: float, norm: float,
                                train_score: float, eval_score: float) -> None:

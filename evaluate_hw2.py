@@ -80,5 +80,5 @@ def evaluate_hw2(cfg: DictConfig):
 
 
 if __name__ == '__main__':
-    score = evaluate_hw2()
+    score = evaluate_hw2() # TODO make sure get expected acc
     print(score)
