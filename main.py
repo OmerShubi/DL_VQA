@@ -11,7 +11,7 @@ import hydra
 from preprocessing import preprocess_vocab
 from preprocessing.data_preprocessing import VQA_dataset
 from preprocessing.preprocess_images import preprocess_images
-from train import train
+from train import train, get_metrics
 from models.model import VqaNet
 from torch.utils.data import DataLoader
 from utils import main_utils, train_utils
@@ -91,9 +91,9 @@ def main(cfg: DictConfig) -> float:
     else:
         logger.write("Creating val dataset")
         val_dataset = VQA_dataset(data_paths=cfg['main'][full_flag]['val_paths'],
-                                    other_paths=cfg['main'][full_flag]['paths'],
-                                    logger=logger,
-                                    answerable_only=False)
+                                  other_paths=cfg['main'][full_flag]['paths'],
+                                  logger=logger,
+                                  answerable_only=False)
         pickle.dump(val_dataset, open(vqa_path_val, 'wb'))
 
     train_loader = DataLoader(dataset=train_dataset,
@@ -110,6 +110,13 @@ def main(cfg: DictConfig) -> float:
 
     # Init model
     model = VqaNet(cfg['train'], embedding_tokens=train_loader.dataset.num_tokens)
+    optimizer_stuff = None
+    if cfg['main']['start_from_pretrained_model']:
+        model_load_path = cfg['main'][full_flag]['paths']['pretrained_model_path']
+        model_stuff = torch.load(model_load_path, map_location=lambda storage, loc: storage)
+        model.load_state_dict(model_stuff['model_state'])
+        optimizer_stuff = model_stuff['optimizer_state']
+        logger.write(f"Loaded model and optimizer, epoch: {model_stuff['epoch']}")
 
     if torch.cuda.is_available():
         model = model.cuda()
@@ -124,8 +131,10 @@ def main(cfg: DictConfig) -> float:
     hyper_parameters = main_utils.get_flatten_dict(cfg['train'])
 
     logger.report_metrics_hyper_params(hyper_parameters, metrics)
-
-    return metrics['Metrics/BestAccuracy'].item()
+    if isinstance(metrics['Metrics/BestAccuracy'], float):
+        return metrics['Metrics/BestAccuracy']
+    else:
+        return metrics['Metrics/BestAccuracy'].item()
 
 
 if __name__ == '__main__':

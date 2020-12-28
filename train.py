@@ -37,7 +37,7 @@ def update_learning_rate(optimizer, iteration, initial_lr):
 
 
 def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, train_params: TrainParams,
-          logger: TrainLogger) -> Metrics:
+          logger: TrainLogger, optimizer_stuff: dict) -> Metrics:
     """
     Training procedure. Change each part if needed (optimizer, loss, etc.)
     :param model:
@@ -53,7 +53,8 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
     epochs_no_improve = 0
     # Create optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=train_params.lr)
-
+    if optimizer_stuff:
+        optimizer.load_state_dict(optimizer_stuff)
     # Create learning rate scheduler
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
     #                                             step_size=train_params.lr_step_size,

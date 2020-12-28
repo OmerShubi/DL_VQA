@@ -8,8 +8,10 @@ CFG_SCHEMA = {
         'seed': int,
         'num_workers': int,
         'use_full': bool,
+        'start_from_pretrained_model': bool,
         'full':
             {'paths': {
+                'pretrained_model_path': str,
                 'base_path': str,
                 'logs': str,
                 'vocab_path': str, },
@@ -27,6 +29,7 @@ CFG_SCHEMA = {
                 'processed_imgs': str}},
         'small':
             {'paths': {
+                'pretrained_model_path': str,
                 'base_path': str,
                 'logs': str,
                 'vocab_path': str, },

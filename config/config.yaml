@@ -7,12 +7,14 @@ defaults:
 main:
   experiment_name_prefix: my_exp
   seed: 1
-  num_workers: 8 #todo increase?
-  use_full: True
+  num_workers: 3 #todo increase?
+  use_full: False
+  start_from_pretrained_model: True # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
-  #    base_path: '/datashare'
-      base_path: './zip'
+      pretrained_model_path: './model.pth'
+      base_path: '/datashare'
+#      base_path: './zip'
       logs: 'logs/'
       vocab_path: './vocab.json'
     train_paths:
@@ -29,6 +31,7 @@ main:
       processed_imgs: './processed_val_images.h5'
   small:
     paths:
+      pretrained_model_path: './model_small.pth'
       base_path: './small_data'
       logs: 'logs/'
       vocab_path: './vocab_small.json'
@@ -50,14 +53,14 @@ train:
     embedding_features: 300
     dropout: 0.3
     num_lstm_layers: 1 # TODO change code if True!!
-    bidirectional: True # False # OVERRIDEN
+    bidirectional: False # False # OVERRIDEN
   image:
 #    image_features: 64 # Todo not in use
     kernel_size: 3 # 5  # OVERRIDEN
     dropout: 0.3
     # num_channels OVERRIDEN
 #    num_channels: [3, 6, 16, 32, 64] # last entry should match image_features
-    num_channels: [3, 16, 32, 64, 128, 256, 512] # last entry should match image_features
+    num_channels: [3, 64, 128, 256] # last entry should match image_features
 
   attention:
     hidden_dim: 1024 # 512 # OVERRIDEN
@@ -73,7 +76,7 @@ train:
 
   n_epochs_stop: 6
   num_epochs: 8
-  batch_size: 128
+  batch_size: 64
   save_model: True
   lr: # TODO what are reasonable values?
     lr_value: 1e-3
@@ -121,7 +124,7 @@ hydra:
             "[3, 64, 128, 256]",
             "[3, 64, 64]",
             "[3, 128, 64, 32]",
-            "[3, 16, 32, 64, 128, 256, 512]",
+            "[3, 16, 64, 128, 256, 512]",
             "[3, 6, 16, 32, 64]",
           ]
           value_type: str
