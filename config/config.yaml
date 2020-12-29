@@ -62,6 +62,7 @@ train:
 #    num_channels: [3, 6, 16, 32, 64] # last entry should match image_features
     num_channels: [3, 64, 128, 256] # last entry should match image_features
     stride: 1
+    do_skip_connection: True
   attention:
     hidden_dim: 1024 # 512 # OVERRIDEN
     glimpses: 2
@@ -131,8 +132,6 @@ hydra:
           value_type: str
 
 # TODO
-#  Stride
-# Skip Connection
 # 8*8 ~
 # Deeper CNN with 1X1 conv
 

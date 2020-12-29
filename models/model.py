@@ -76,20 +76,59 @@ class VqaNet(nn.Module):
 
 
 
-class ImageNet(nn.Sequential):
+# class ImageNet(nn.Sequential):
+#     def __init__(self, image_cng):
+#         super(ImageNet, self).__init__()
+#         kernel_size = image_cng['kernel_size']
+#         num_channels = image_cng['num_channels']
+#         stride = image_cng['stride']
+#
+#         for i in range(len(num_channels)-1):
+#             self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=kernel_size, stride=stride))
+#             self.add_module(f'relu{i}', nn.ReLU())
+#             self.add_module(f'maxpool{i}', nn.MaxPool2d(2, 2))
+#
+#         self.add_module('drop', nn.Dropout(image_cng['dropout']))
+
+class ImageNet(nn.Module):
     def __init__(self, image_cng):
         super(ImageNet, self).__init__()
+        self.do_skip_connection = image_cng['do_skip_connection']
         kernel_size = image_cng['kernel_size']
-        num_channels = image_cng['num_channels']
+        self.num_channels = image_cng['num_channels']
         stride = image_cng['stride']
+        padding = kernel_size//2 if self.do_skip_connection else 0
+        for i in range(len(self.num_channels)-1):
+            setattr(self, f'conv{i}', nn.Conv2d(in_channels=self.num_channels[i], out_channels=self.num_channels[i+1],
+                                                kernel_size=kernel_size, padding=padding, stride=stride))
+            setattr(self, f'relu{i}', nn.ReLU())
 
-        for i in range(len(num_channels)-1):
-            self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=kernel_size, stride=stride))
-            self.add_module(f'relu{i}', nn.ReLU())
-            self.add_module(f'maxpool{i}', nn.MaxPool2d(2, 2))
+            if self.do_skip_connection:
+                if (i + 1) % 2 == 0:
+                    setattr(self, f'conv_skip{i}', nn.Conv2d(in_channels=self.num_channels[i-1], out_channels=self.num_channels[i+1],
+                                                             kernel_size=1, stride=stride, bias=False))
+                    setattr(self, f'maxpool{i}', nn.MaxPool2d(2, 2))
+            else:
+                setattr(self, f'maxpool{i}', nn.MaxPool2d(2, 2))
 
-        self.add_module('drop', nn.Dropout(image_cng['dropout']))
+        self.dropout = nn.Dropout(image_cng['dropout'])
 
+    def forward(self, x):
+        x_orig = x
+        for i in range(len(self.num_channels) - 1):
+            x = getattr(self, f'conv{i}')(x)
+            x = getattr(self, f'relu{i}')(x)
+            if self.do_skip_connection:
+                if (i+1) % 2 == 0:
+                    x_orig = getattr(self, f'conv_skip{i}')(x_orig)
+                    x += x_orig
+                    x = getattr(self, f'maxpool{i}')(x)
+            else:
+                x = getattr(self, f'maxpool{i}')(x)
+
+        x = self.dropout(x)
+
+        return x
 
 
 class questionNet(nn.Module):

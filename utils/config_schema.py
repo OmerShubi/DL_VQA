@@ -60,6 +60,7 @@ CFG_SCHEMA = {
             'dropout': float,
             'num_channels': list,
             'stride': int,
+            'do_skip_connection': bool,
         },
         'attention': {
             'hidden_dim': int,
