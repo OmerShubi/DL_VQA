@@ -59,6 +59,7 @@ CFG_SCHEMA = {
             'kernel_size': int,
             'dropout': float,
             'num_channels': list,
+            'stride': int,
         },
         'attention': {
             'hidden_dim': int,

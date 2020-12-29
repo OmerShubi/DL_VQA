@@ -35,7 +35,7 @@ class VqaNet(nn.Module):
         #TODO change
         # self.image = GoogLeNet()
         # self.image = VGGNet()
-        self.image = BasicConvNet(image_cfg)
+        self.image = ImageNet(image_cfg)
 
         self.attention = Attention(
             v_features=image_features,
@@ -76,13 +76,15 @@ class VqaNet(nn.Module):
 
 
 
-class BasicConvNet(nn.Sequential):
+class ImageNet(nn.Sequential):
     def __init__(self, image_cng):
-        super(BasicConvNet, self).__init__()
+        super(ImageNet, self).__init__()
         kernel_size = image_cng['kernel_size']
         num_channels = image_cng['num_channels']
+        stride = image_cng['stride']
+
         for i in range(len(num_channels)-1):
-            self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=kernel_size))
+            self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=kernel_size, stride=stride))
             self.add_module(f'relu{i}', nn.ReLU())
             self.add_module(f'maxpool{i}', nn.MaxPool2d(2, 2))
 
@@ -147,7 +149,7 @@ class Attention(nn.Module):
         elif self.do_option == '+':
             x = self.relu(v + q)
         elif self.do_option == '|':
-            x = self.relu(torch.cat([v,q]), dim=1)
+            x = self.relu(torch.cat([v,q], dim=1))
         x = self.x_conv(self.drop(x))
         return x
 

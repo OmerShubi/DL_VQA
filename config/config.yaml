@@ -8,8 +8,8 @@ main:
   experiment_name_prefix: my_exp
   seed: 1
   num_workers: 8 #todo increase?
-  use_full: True
-  start_from_pretrained_model: True # If True make sure not using AX!!! and make sure model actually exists!
+  use_full: False
+  start_from_pretrained_model: False # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
       pretrained_model_path: './model.pth'
@@ -61,11 +61,11 @@ train:
     # num_channels OVERRIDEN
 #    num_channels: [3, 6, 16, 32, 64] # last entry should match image_features
     num_channels: [3, 64, 128, 256] # last entry should match image_features
-
+    stride: 1
   attention:
     hidden_dim: 1024 # 512 # OVERRIDEN
     glimpses: 2
-    do_option: "*" # Options "*" / "+" / "|"
+    do_option: "|" # Options "*" / "+" / "|"
     dropout: 0.3
   classifier:
     hidden_dim: 1024
@@ -88,7 +88,7 @@ hydra:
   output_subdir: null
   run:
     dir: logs/hydra
-  sweeper:
+  sweeper: # TODO update
     # The following part of config is used to setup the Hydra Ax plugin and is optional
     ax_config:
       # max_trials is application-specific. Tune it for your use case
@@ -134,6 +134,5 @@ hydra:
 #  Stride
 # Skip Connection
 # 8*8 ~
-# Concat / Dot in attention
 # Deeper CNN with 1X1 conv
 
