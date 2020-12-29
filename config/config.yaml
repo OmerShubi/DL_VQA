@@ -7,14 +7,14 @@ defaults:
 main:
   experiment_name_prefix: my_exp
   seed: 1
-  num_workers: 3 #todo increase?
-  use_full: False
-  start_from_pretrained_model: False # If True make sure not using AX!!! and make sure model actually exists!
+  num_workers: 8 #todo increase?
+  use_full: True
+  start_from_pretrained_model: True # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
       pretrained_model_path: './model.pth'
-      base_path: '/datashare'
-#      base_path: './zip'
+#      base_path: '/datashare'
+      base_path: './zip'
       logs: 'logs/'
       vocab_path: './vocab.json'
     train_paths:
@@ -53,7 +53,7 @@ train:
     embedding_features: 300
     dropout: 0.3
     num_lstm_layers: 1 # TODO change code if True!!
-    bidirectional: False # False # OVERRIDEN
+    bidirectional: True # False # OVERRIDEN
   image:
 #    image_features: 64 # Todo not in use
     kernel_size: 3 # 5  # OVERRIDEN
@@ -65,6 +65,7 @@ train:
   attention:
     hidden_dim: 1024 # 512 # OVERRIDEN
     glimpses: 2
+    do_multiply: True
     dropout: 0.3
   classifier:
     hidden_dim: 1024
@@ -75,8 +76,8 @@ train:
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
 
   n_epochs_stop: 6
-  num_epochs: 8
-  batch_size: 64
+  num_epochs: 80
+  batch_size: 128
   save_model: True
   lr: # TODO what are reasonable values?
     lr_value: 1e-3
@@ -128,4 +129,11 @@ hydra:
             "[3, 6, 16, 32, 64]",
           ]
           value_type: str
+
+# TODO
+#  Stride
+# Skip Connection
+# 8*8 ~
+# Concat / Dot in attention
+# Deeper CNN with 1X1 conv
 

@@ -127,7 +127,7 @@ def main(cfg: DictConfig) -> float:
     train_params = train_utils.get_train_params(cfg)
 
     # Report metrics and hyper parameters to tensorboard
-    metrics = train(model, train_loader, val_loader, train_params, logger)
+    metrics = train(model, train_loader, val_loader, train_params, logger, optimizer_stuff)
     hyper_parameters = main_utils.get_flatten_dict(cfg['train'])
 
     logger.report_metrics_hyper_params(hyper_parameters, metrics)
