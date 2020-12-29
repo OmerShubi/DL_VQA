@@ -65,7 +65,7 @@ train:
   attention:
     hidden_dim: 1024 # 512 # OVERRIDEN
     glimpses: 2
-    do_multiply: True
+    do_option: "*" # Options "*" / "+" / "|"
     dropout: 0.3
   classifier:
     hidden_dim: 1024

@@ -63,7 +63,7 @@ CFG_SCHEMA = {
         'attention': {
             'hidden_dim': int,
             'glimpses': int,
-            'do_multiply': bool,
+            'do_option': str,
             'dropout': float,
 
         },

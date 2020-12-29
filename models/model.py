@@ -42,7 +42,7 @@ class VqaNet(nn.Module):
             q_features=lstm_out_features,
             mid_features=attention_cfg['hidden_dim'],
             glimpses=glimpses,
-            do_multiply=attention_cfg['do_multiply'],
+            do_option=attention_cfg['do_option'],
             drop=attention_cfg['dropout'],
         )
 
@@ -124,12 +124,15 @@ class questionNet(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, v_features, q_features, mid_features, glimpses, do_multiply, drop=0.0):
+    def __init__(self, v_features, q_features, mid_features, glimpses, do_option, drop=0.0):
         super(Attention, self).__init__()
-        self.do_multiply = do_multiply
+        self.do_option = do_option
         self.v_conv = nn.Conv2d(in_channels=v_features, out_channels=mid_features, kernel_size=1, bias=False)  # let self.lin take care of bias
         self.q_lin = nn.Linear(in_features=q_features, out_features=mid_features)
-        self.x_conv = nn.Conv2d(in_channels=mid_features, out_channels=glimpses, kernel_size=1)
+        if self.do_option == '|':
+            self.x_conv = nn.Conv2d(in_channels=2*mid_features, out_channels=glimpses, kernel_size=1)
+        else:
+            self.x_conv = nn.Conv2d(in_channels=mid_features, out_channels=glimpses, kernel_size=1)
 
         self.drop = nn.Dropout(drop)
         self.relu = nn.ReLU(inplace=True)
@@ -139,10 +142,12 @@ class Attention(nn.Module):
         v = self.v_conv(self.drop(v))  # todo conv only on V - for report, doesnt match paper?
         q = self.q_lin(self.drop(q))
         q = tile_2d_over_nd(q, v)
-        if self.do_multiply:
+        if self.do_option == '*':
             x = self.relu(v * q) # todo why + and not cat? - for report, doesnt match paper?
-        else:
+        elif self.do_option == '+':
             x = self.relu(v + q)
+        elif self.do_option == '|':
+            x = self.relu(torch.cat([v,q]), dim=1)
         x = self.x_conv(self.drop(x))
         return x
 
