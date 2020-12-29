@@ -96,35 +96,43 @@ class ImageNet(nn.Module):
         self.do_skip_connection = image_cng['do_skip_connection']
         kernel_size = image_cng['kernel_size']
         self.num_channels = image_cng['num_channels']
-        stride = image_cng['stride']
-        padding = kernel_size//2 if self.do_skip_connection else 0
+        self.stride = image_cng['stride']
+        padding = kernel_size//2
         for i in range(len(self.num_channels)-1):
-            setattr(self, f'conv{i}', nn.Conv2d(in_channels=self.num_channels[i], out_channels=self.num_channels[i+1],
-                                                kernel_size=kernel_size, padding=padding, stride=stride))
+            if (self.do_skip_connection and i % 2 == 0) or not self.do_skip_connection:
+                setattr(self, f'conv{i}', nn.Conv2d(in_channels=self.num_channels[i], out_channels=self.num_channels[i + 1],
+                                                    kernel_size=kernel_size, padding=padding, stride=self.stride))
+            else:
+                setattr(self, f'conv{i}', nn.Conv2d(in_channels=self.num_channels[i], out_channels=self.num_channels[i+1],
+                                                    kernel_size=kernel_size, padding=padding))
             setattr(self, f'relu{i}', nn.ReLU())
 
             if self.do_skip_connection:
                 if (i + 1) % 2 == 0:
                     setattr(self, f'conv_skip{i}', nn.Conv2d(in_channels=self.num_channels[i-1], out_channels=self.num_channels[i+1],
-                                                             kernel_size=1, stride=stride, bias=False))
-                    setattr(self, f'maxpool{i}', nn.MaxPool2d(2, 2))
-            else:
-                setattr(self, f'maxpool{i}', nn.MaxPool2d(2, 2))
+                                                             kernel_size=1, stride=self.stride, bias=False))
+
+
+        self.maxpool = nn.MaxPool2d(2, 2)
 
         self.dropout = nn.Dropout(image_cng['dropout'])
 
     def forward(self, x):
-        x_orig = x
+
         for i in range(len(self.num_channels) - 1):
+            if i % 2 == 0:
+                x_orig = x
             x = getattr(self, f'conv{i}')(x)
             x = getattr(self, f'relu{i}')(x)
             if self.do_skip_connection:
                 if (i+1) % 2 == 0:
                     x_orig = getattr(self, f'conv_skip{i}')(x_orig)
                     x += x_orig
-                    x = getattr(self, f'maxpool{i}')(x)
+                    if self.stride == 1:
+                        x = self.maxpool(x)
             else:
-                x = getattr(self, f'maxpool{i}')(x)
+                if self.stride == 1:
+                    x = self.maxpool(x)
 
         x = self.dropout(x)
 

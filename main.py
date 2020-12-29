@@ -96,20 +96,9 @@ def main(cfg: DictConfig) -> float:
                                   answerable_only=False)
         pickle.dump(val_dataset, open(vqa_path_val, 'wb'))
 
-    train_loader = DataLoader(dataset=train_dataset,
-                              batch_size=cfg['train']['batch_size'],
-                              shuffle=True,
-                              num_workers=cfg['main']['num_workers'],
-                              pin_memory=True)
-
-    val_loader = DataLoader(dataset=val_dataset,
-                            batch_size=cfg['train']['batch_size'],
-                            shuffle=False,
-                            num_workers=cfg['main']['num_workers'],
-                            pin_memory=True)
 
     # Init model
-    model = VqaNet(cfg['train'], embedding_tokens=train_loader.dataset.num_tokens)
+    model = VqaNet(cfg['train'], embedding_tokens=train_dataset.num_tokens)
     optimizer_stuff = None
     if cfg['main']['start_from_pretrained_model']:
         model_load_path = cfg['main'][full_flag]['paths']['pretrained_model_path']
@@ -121,11 +110,28 @@ def main(cfg: DictConfig) -> float:
     if torch.cuda.is_available():
         model = model.cuda()
 
-    logger.write(main_utils.get_model_string(model))
+    model_string, n_params = main_utils.get_model_string(model)
+    if n_params > 20e+8:
+        batch_size = int(cfg['train']['batch_size'] / 2)
+    else:
+        batch_size = cfg['train']['batch_size']
+    logger.write(model_string)
+
+
+    train_loader = DataLoader(dataset=train_dataset,
+                              batch_size=batch_size,
+                              shuffle=True,
+                              num_workers=cfg['main']['num_workers'],
+                              pin_memory=True)
+
+    val_loader = DataLoader(dataset=val_dataset,
+                            batch_size=batch_size,
+                            shuffle=False,
+                            num_workers=cfg['main']['num_workers'],
+                            pin_memory=True)
 
     # Run model
     train_params = train_utils.get_train_params(cfg)
-
     # Report metrics and hyper parameters to tensorboard
     metrics = train(model, train_loader, val_loader, train_params, logger, optimizer_stuff)
     hyper_parameters = main_utils.get_flatten_dict(cfg['train'])

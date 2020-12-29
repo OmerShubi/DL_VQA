@@ -38,7 +38,7 @@ def get_model_string(model: nn.Module) -> str:
     model_string += '\n'
     model_string += f'Total params: {n_params} (Text: {text_params}, Image: {image_params}, Attention: {attention_params}, Classifier: {classifier_params})'
 
-    return model_string
+    return model_string, n_params
 
 
 def set_seed(seed: int) -> None:

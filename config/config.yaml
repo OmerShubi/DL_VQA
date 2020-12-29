@@ -8,7 +8,7 @@ main:
   experiment_name_prefix: my_exp
   seed: 1
   num_workers: 8 #todo increase?
-  use_full: False
+  use_full: True
   start_from_pretrained_model: False # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
@@ -51,33 +51,31 @@ train:
   text:
     question_features: 1024
     embedding_features: 300
-    dropout: 0.3
+    dropout: 0.4
     num_lstm_layers: 1 # TODO change code if True!!
     bidirectional: True # False # OVERRIDEN
   image:
-#    image_features: 64 # Todo not in use
-    kernel_size: 3 # 5  # OVERRIDEN
-    dropout: 0.3
+    kernel_size: 3
+    dropout: 0.4
     # num_channels OVERRIDEN
-#    num_channels: [3, 6, 16, 32, 64] # last entry should match image_features
-    num_channels: [3, 64, 128, 256] # last entry should match image_features
-    stride: 1
-    do_skip_connection: True
+    num_channels: [3, 64, 128, 256, 512] # last entry should match image_features
+    stride: 2  # OVERRIDEN
+    do_skip_connection: False  # OVERRIDEN
   attention:
-    hidden_dim: 1024 # 512 # OVERRIDEN
+    hidden_dim: 1024
     glimpses: 2
-    do_option: "|" # Options "*" / "+" / "|"
-    dropout: 0.3
+    do_option: "|" # Options "*" / "+" / "|"  # OVERRIDEN
+    dropout: 0.4
   classifier:
     hidden_dim: 1024
-    dropout: 0.3
+    dropout: 0.4
 
   max_answers: 3000
   image_size: 224 # scale shorter end of image to this size and centre crop
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
 
   n_epochs_stop: 6
-  num_epochs: 80
+  num_epochs: 10
   batch_size: 128
   save_model: True
   lr: # TODO what are reasonable values?
@@ -93,7 +91,7 @@ hydra:
     # The following part of config is used to setup the Hydra Ax plugin and is optional
     ax_config:
       # max_trials is application-specific. Tune it for your use case
-      max_trials: 20
+      max_trials: 30
 
       experiment:
         # Default to minimize, set to false to maximize
@@ -103,35 +101,63 @@ hydra:
         # Number of epochs without a significant improvement from
         # the currently known best parameters
         # An Epoch is defined as a batch of trials executed in parallel
-        max_epochs_without_improvement: 20
+        max_epochs_without_improvement: 25
 
       params:
-        train.attention.hidden_dim:
-          type: choice
-          values: [ 512, 1024 ]
-          is_ordered: True
-          value_type: int
         train.text.bidirectional:
           type: choice
           values: [ False, True ]
           value_type: bool
-        train.image.kernel_size:
+#        train.image.do_skip_connection:
+#          type: choice
+#          values: [ False, True ]
+#          value_type: bool
+        train.image.stride:
           type: choice
-          values: [ 3, 5 ]
+          values: [ 1, 2 ]
           is_ordered: True
           value_type: int
+        train.attention.do_option:
+          type: choice
+          values: ["'+'", "'*'", "'|'"]
+          value_type: str
         train.image.num_channels:
           type: choice
           values: [
             "[3, 64, 128, 256]",
-            "[3, 64, 64]",
-            "[3, 128, 64, 32]",
-            "[3, 16, 64, 128, 256, 512]",
-            "[3, 6, 16, 32, 64]",
+            "[3, 64, 128, 256, 512]",
+            "[3, 32, 64, 128, 512, 1024]",
           ]
           value_type: str
+#"""
+#224*224*3
+#224 112 56 28
+# 224*224*64
+# 224*224*32
+#stride | do_skip_connection | num_num_channels | output_grid_size
+#1           0                     4                 28
+#1           0                     5                 14
+#1           0                     6                 7
+#
+#
+#2           0                     4                 7
+#2           0                     5                 3
+#2           0                     6                 1
+#
+#
+#1           1                     4                 56
+#1           1                     5                 28
+#1           1                     6                 14
+#
+#
+#2           1                     2                 112
+#2           1                     3                 28
+#2           1                     4                 7
+#2           1                     5                 14
+#2           1                     6                 7
+#
+#
+#"""
 
-# TODO
-# 8*8 ~
-# Deeper CNN with 1X1 conv
+# TODO batchnorm? skip connection :(
 
