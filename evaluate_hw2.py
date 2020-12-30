@@ -87,5 +87,5 @@ def evaluate_hw2():
 
 
 if __name__ == '__main__':
-    score = evaluate_hw2() # TODO make sure get expected acc
+    score = evaluate_hw2()  # TODO make sure get expected acc
     print(score)

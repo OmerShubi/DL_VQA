@@ -133,6 +133,10 @@ def main(cfg: DictConfig) -> float:
     # Run model
     train_params = train_utils.get_train_params(cfg)
     # Report metrics and hyper parameters to tensorboard
+    # alread_exists_values = already_exists(cfg)
+    # if alread_exists_values:
+    #     metrics = alread_exists_values
+    # else:
     metrics = train(model, train_loader, val_loader, train_params, logger, optimizer_stuff)
     hyper_parameters = main_utils.get_flatten_dict(cfg['train'])
 
@@ -142,6 +146,28 @@ def main(cfg: DictConfig) -> float:
     else:
         return metrics['Metrics/BestAccuracy'].item()
 
+def already_exists(cfg):
+    ahd = cfg['train']['attention']['hidden_dim']
+    tbd = cfg['train']['text']['bidirectional']
+    iks = cfg['train']['image']['kernel_size']
+    inc = cfg['train']['image']['num_channels']
+    scores = None
+    if ahd == 1024:
+        if iks == 5 and inc == [3, 64, 64]:
+            if tbd == 0:
+                scores = (46.776, 46.776, 1.7873)
+            if tbd == 1:
+                scores = (46.707, 46.707, 1.7652)
+        if iks == 3:
+            if tbd == 0 and inc == [3, 64, 128, 256]:
+                scores = (47.428, 47.428, 1.7726)
+            if tbd == 1 and inc == [3, 6, 16, 32, 64]:
+                scores = (46.672, 46.672, 1.7632)
+
+    if scores:
+        return get_metrics(*scores)
+    else:
+        return None
 
 if __name__ == '__main__':
     main()

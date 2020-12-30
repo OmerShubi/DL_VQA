@@ -13,8 +13,8 @@ main:
   full:
     paths:
       pretrained_model_path: './model.pth'
-      base_path: '/datashare'
-#      base_path: './zip'
+#      base_path: '/datashare'
+      base_path: './zip'
       logs: 'logs_full/'
       vocab_path: './vocab.json'
     train_paths:
@@ -51,24 +51,23 @@ train:
   text:
     question_features: 1024
     embedding_features: 300
-    dropout: 0.4
-    num_lstm_layers: 1 # TODO change code if True!!
-    bidirectional: True # False # OVERRIDEN
+    dropout: 0.3
+    num_lstm_layers: 1 # needs change of code if >1
+    bidirectional: True
   image:
     kernel_size: 3
-    dropout: 0.4
-    # num_channels OVERRIDEN
+    dropout: 0.3
     num_channels: [3, 64, 128, 256] # last entry should match image_features
     stride: 1  # OVERRIDEN
-    do_skip_connection: False  # OVERRIDEN
+    do_skip_connection: False
   attention:
     hidden_dim: 1024
     glimpses: 2
     do_option: "+" # Options "*" / "+" / "|"  # OVERRIDEN
-    dropout: 0.4
+    dropout: 0.3
   classifier:
     hidden_dim: 1024
-    dropout: 0.4
+    dropout: 0.3
 
   max_answers: 3000
   image_size: 224 # scale shorter end of image to this size and centre crop
@@ -78,7 +77,7 @@ train:
   num_epochs: 8
   batch_size: 128
   save_model: True
-  lr: # TODO what are reasonable values?
+  lr:
     lr_value: 1e-3
     lr_decay: 15
     lr_gamma: 0.1
@@ -87,11 +86,11 @@ hydra:
   output_subdir: null
   run:
     dir: logs/hydra
-  sweeper: # TODO update
+  sweeper:
     # The following part of config is used to setup the Hydra Ax plugin and is optional
     ax_config:
       # max_trials is application-specific. Tune it for your use case
-      max_trials: 30
+      max_trials: 4
 
       experiment:
         # Default to minimize, set to false to maximize
@@ -101,13 +100,13 @@ hydra:
         # Number of epochs without a significant improvement from
         # the currently known best parameters
         # An Epoch is defined as a batch of trials executed in parallel
-        max_epochs_without_improvement: 25
+        max_epochs_without_improvement: 4
 
       params:
-        train.text.bidirectional:
-          type: choice
-          values: [ False, True ]
-          value_type: bool
+#        train.text.bidirectional:
+#          type: choice
+#          values: [ False, True ]
+#          value_type: bool
 #        train.image.do_skip_connection:
 #          type: choice
 #          values: [ False, True ]
@@ -119,16 +118,16 @@ hydra:
           value_type: int
         train.attention.do_option:
           type: choice
-          values: ["'+'", "'*'", "'|'"]
+          values: ["'+'", "'*'"]
           value_type: str
-        train.image.num_channels:
-          type: choice
-          values: [
-            "[3, 64, 128, 256]",
-            "[3, 64, 128, 256, 512]",
-            "[3, 32, 64, 128, 512, 1024]",
-          ]
-          value_type: str
+#        train.image.num_channels:
+#          type: choice
+#          values: [
+#            "[3, 64, 128, 256]",
+#            "[3, 64, 128, 256, 512]",
+#            "[3, 32, 64, 128, 512, 1024]",
+#          ]
+#          value_type: str
 #"""
 #224*224*3
 #224 112 56 28
@@ -159,5 +158,5 @@ hydra:
 #
 #"""
 
-# TODO batchnorm? skip connection :(
+# TODO batchnorm?
 

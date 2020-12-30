@@ -6,9 +6,8 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 
 class VqaNet(nn.Module):
-    """ Based on paper - Show, Ask, Attend, and Answer: A Strong Baseline For Visual Question Answering
-
-    TODO use and delete https://github.com/Cyanogenoid/vqa-counting/blob/master/vqa-v2/model.py
+    """
+    Based on paper - Show, Ask, Attend, and Answer: A Strong Baseline For Visual Question Answering
     """
 
     def __init__(self, cfg, embedding_tokens):
@@ -51,13 +50,6 @@ class VqaNet(nn.Module):
             out_features=cfg['max_answers'],
             drop=classifier_cfg['dropout'],
         )
-
-        # xavier_uniform_ init for linear and conv layers
-        # for m in self.modules(): # TODO need?
-        #     if isinstance(m, nn.xavier_uniform_) or isinstance(m, nn.Conv2d):
-        #         init.xavier_uniform_(m.weight)
-        #         if m.bias is not None:
-        #             m.bias.data.zero_()
 
     def forward(self, v, q, q_len):
         v = self.image(v)
@@ -148,20 +140,6 @@ class questionNet(nn.Module):
                             hidden_size=lstm_features,
                             num_layers=num_lstm_layers, dropout=drop, bidirectional=bidirectional)
 
-    # TODO need?
-    # xavier_uniform_ init
-    #     self._init_lstm(self.lstm.weight_ih_l0)
-    #     self._init_lstm(self.lstm.weight_hh_l0)
-    #
-    #     self.lstm.bias_ih_l0.data.zero_()
-    #     self.lstm.bias_hh_l0.data.zero_()
-    #
-    #     init.xavier_uniform_(self.embedding.weight)
-    #
-    # def _init_lstm(self, weight):
-    #     for w in weight.chunk(4, 0):
-    #         init.xavier_uniform_(w)
-
     def forward(self, q, q_len):
         embedded = self.embedding(q)
         embedded_drop = self.drop(embedded)
@@ -187,11 +165,11 @@ class Attention(nn.Module):
 
     def forward(self, v, q):
 
-        v = self.v_conv(self.drop(v))  # todo conv only on V - for report, doesnt match paper?
+        v = self.v_conv(self.drop(v))
         q = self.q_lin(self.drop(q))
         q = tile_2d_over_nd(q, v)
         if self.do_option == '*':
-            x = self.relu(v * q) # todo why + and not cat? - for report, doesnt match paper?
+            x = self.relu(v * q)
         elif self.do_option == '+':
             x = self.relu(v + q)
         elif self.do_option == '|':
