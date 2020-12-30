@@ -32,10 +32,9 @@ class VqaNet(nn.Module):
             drop=text_cfg['dropout'],
             num_lstm_layers=text_cfg['num_lstm_layers'],
             bidirectional=text_cfg['bidirectional'])
-        #TODO change
-        # self.image = GoogLeNet()
-        # self.image = VGGNet()
-        self.image = ImageNet(image_cfg)
+
+        #TODO change!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        self.image = ImageNet2(image_cfg)
 
         self.attention = Attention(
             v_features=image_features,
@@ -76,19 +75,19 @@ class VqaNet(nn.Module):
 
 
 
-# class ImageNet(nn.Sequential):
-#     def __init__(self, image_cng):
-#         super(ImageNet, self).__init__()
-#         kernel_size = image_cng['kernel_size']
-#         num_channels = image_cng['num_channels']
-#         stride = image_cng['stride']
-#
-#         for i in range(len(num_channels)-1):
-#             self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=kernel_size, stride=stride))
-#             self.add_module(f'relu{i}', nn.ReLU())
-#             self.add_module(f'maxpool{i}', nn.MaxPool2d(2, 2))
-#
-#         self.add_module('drop', nn.Dropout(image_cng['dropout']))
+class ImageNet2(nn.Sequential):
+    def __init__(self, image_cng):
+        super(ImageNet2, self).__init__()
+        kernel_size = image_cng['kernel_size']
+        num_channels = image_cng['num_channels']
+        stride = image_cng['stride']
+
+        for i in range(len(num_channels)-1):
+            self.add_module(f'conv{i}', nn.Conv2d(in_channels=num_channels[i], out_channels=num_channels[i+1], kernel_size=kernel_size, stride=stride))
+            self.add_module(f'relu{i}', nn.ReLU())
+            self.add_module(f'maxpool{i}', nn.MaxPool2d(2, 2))
+
+        self.add_module('drop', nn.Dropout(image_cng['dropout']))
 
 class ImageNet(nn.Module):
     def __init__(self, image_cng):
@@ -235,159 +234,3 @@ def tile_2d_over_nd(feature_vector, feature_map):
     return tiled
 
 # TODO make look like own
-
-
-# TODO delete if no use
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-        kernel1_size = 3
-        kernel2_size = 3
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=kernel1_size)
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(in_channels=64, out_channels=256, kernel_size=kernel2_size)
-        # self.conv3 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=kernel2_size)
-        # self.conv4 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=kernel2_size)
-        self.dropout = nn.Dropout(p=0.3)
-        # batch X num channels X H X W
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.conv4(x)) # + x_orig
-        x = self.dropout(x)
-        return x
-
-class VGGNet(nn.Module):
-    def __init__(self):
-        super(VGGNet, self).__init__()
-        self.net = nn.Sequential(nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
-                                 nn.BatchNorm2d(64),
-                                 nn.ReLU(True),
-                                 nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-                                 nn.ReLU(True),
-                                 nn.MaxPool2d(2, 2),
-                                 nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
-                                 nn.BatchNorm2d(128),
-                                 nn.ReLU(True),
-                                 nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
-                                 nn.BatchNorm2d(128),
-                                 nn.ReLU(True),
-                                 nn.MaxPool2d(2, 2),
-                                 nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
-                                 nn.BatchNorm2d(256),
-                                 nn.ReLU(True),
-                                 nn.Dropout(p=0.3))
-
-    def forward(self, x):
-        x= self.net(x)
-
-        return x
-
-
-class inception(nn.Module):
-    def __init__(self, num_of_planes, nof1x1, nof3x3_1, nof3x3_out, nof5x5_1, nof5x5_out, pool_planes):
-        super(inception, self).__init__()
-        # 1x1 conv branch
-        self.b1x1 = nn.Sequential(
-            nn.Conv2d(num_of_planes, nof1x1, kernel_size=1),
-            nn.BatchNorm2d(nof1x1),
-            nn.ReLU(True),
-        )
-        # 1x1 conv -> 3x3 conv branch
-        self.b1x3 = nn.Sequential(
-            nn.Conv2d(in_channels=num_of_planes, out_channels=nof3x3_1, kernel_size=1),
-            nn.BatchNorm2d(nof3x3_1),
-            nn.ReLU(True),
-            nn.Conv2d(nof3x3_1, nof3x3_out, kernel_size=3, padding=1),
-            nn.BatchNorm2d(nof3x3_out),
-            nn.ReLU(True),
-        )
-
-        # 1x1 conv -> 5x5 conv branch
-        self.b1x5 = nn.Sequential(
-            nn.Conv2d(num_of_planes, nof5x5_1, kernel_size=1),
-            nn.BatchNorm2d(nof5x5_1),
-            nn.ReLU(True),
-            nn.Conv2d(nof5x5_1, nof5x5_out, kernel_size=5, padding=2),
-            nn.BatchNorm2d(nof5x5_out),
-            nn.ReLU(True),
-        )
-
-        # 3x3 pool -> 1x1 conv branch
-        self.b3x1 = nn.Sequential(
-            nn.MaxPool2d(3, stride=1, padding=1),
-            nn.Conv2d(num_of_planes, pool_planes, kernel_size=1),
-            nn.BatchNorm2d(pool_planes),
-            nn.ReLU(True),
-        )
-
-    def forward(self, a):
-        b1 = self.b1x1(a)
-        b2 = self.b1x3(a)
-        b3 = self.b1x5(a)
-        b4 = self.b3x1(a)
-        return torch.cat([b1, b2, b3, b4], 1)  # concatenating the convolutions' branches
-
-
-class GoogLeNet(nn.Module):
-    def __init__(self):
-        super(GoogLeNet, self).__init__()
-        self.first_layer = nn.Sequential(
-            nn.Conv2d(3, 30, kernel_size=3, padding=1),     # using 30 filters 3x3
-            nn.BatchNorm2d(30),
-            nn.ReLU(True),
-        )
-        # input num channels = num_of_planes
-        # output = nof1x1+nof3x3_out+nof5x5_out+pool_planes
-
-        self.a1 = inception(num_of_planes=30,
-                            nof1x1=20,
-                            nof3x3_1=4,
-                            nof3x3_out=24,
-                            nof5x5_1=4,
-                            nof5x5_out=16,
-                            pool_planes=16)
-
-        self.a2 = inception(num_of_planes=76,
-                            nof1x1=28,
-                            nof3x3_1=6,
-                            nof3x3_out=32,
-                            nof5x5_1=4,
-                            nof5x5_out=20,
-                            pool_planes=20)
-
-        self.a3 = inception(num_of_planes=100,
-                            nof1x1=40,
-                            nof3x3_1=8,
-                            nof3x3_out=40,
-                            nof5x5_1=4,
-                            nof5x5_out=24,
-                            pool_planes=24)
-
-        self.a4 = inception(num_of_planes=128,
-                            nof1x1=64,
-                            nof3x3_1=9,
-                            nof3x3_out=64,
-                            nof5x5_1=4,
-                            nof5x5_out=64,
-                            pool_planes=64)
-
-        self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
-        self.dropout = nn.Dropout(p=0.3)
-
-
-    def forward(self, x):
-        # x dim = [batch_size, 3, image_size, image_size]
-        out = self.first_layer(x)  # [batch_size, 30, image_size, image_size]
-        out = self.a1(out)  # [batch_size, 38, image_size, image_size]
-        out = self.maxpool(out)  # [batch_size, 50, image_size/2, image_size/2]
-        out = self.a2(out)  # [batch_size, 50, image_size/2, image_size/2]
-        out = self.a3(out)  # [batch_size, 64, image_size/2, image_size/2]
-        out = self.maxpool(out)  # [batch_size, 64, image_size/4, image_size/4]
-        out = self.a4(out)  # [batch_size, 76, image_size/4, image_size/4]
-        out = self.dropout(out)
-
-        return out
-

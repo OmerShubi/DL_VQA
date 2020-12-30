@@ -142,7 +142,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
 
 
 @torch.no_grad()
-def evaluate(model: nn.Module, dataloader: DataLoader, max_answers) -> Scores:
+def evaluate(model: nn.Module, dataloader: DataLoader, max_answers):
     """
     Evaluate a model without gradient calculation
     :param model: instance of a model

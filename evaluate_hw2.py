@@ -13,20 +13,23 @@ from torch.utils.data import DataLoader
 from utils import main_utils, train_utils
 from utils.train_logger import TrainLogger
 from omegaconf import DictConfig, OmegaConf
-
+from hydra.experimental import compose, initialize
 torch.backends.cudnn.benchmark = True
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+def evaluate_hw2():
+    initialize(config_path="config")
+    cfg = compose(config_name="config_eval")
+    print(OmegaConf.to_yaml(cfg))
 
-@hydra.main(config_path="config", config_name='config')
-def evaluate_hw2(cfg: DictConfig):
+
     """
         Run the code following a given configuration
         :param cfg: configuration file retrieved from hydra framework
     """
 
-    main_utils.init(cfg)
+    # main_utils.init(cfg)
     logger = TrainLogger(exp_name_prefix=cfg['main']['experiment_name_prefix'], logs_dir=cfg['main']['full']['paths']['logs'])
 
     # Set seed for results reproduction
@@ -48,6 +51,7 @@ def evaluate_hw2(cfg: DictConfig):
                           processed_path=val_imgs)
 
     # Load dataset
+
     vqa_path_val = cfg['main']['full']['val_paths']['vqaDataset']
     if os.path.exists(vqa_path_val):
         val_dataset = pickle.load(open(vqa_path_val, 'rb'))
@@ -74,9 +78,12 @@ def evaluate_hw2(cfg: DictConfig):
         model = model.cuda()
 
     # Run model
+    model.eval()
     score, _ = evaluate(model, val_loader, cfg['train']['max_answers'])
 
-    return score
+    if not isinstance(score, float):
+         score = score.item()
+    return round(score, 3)
 
 
 if __name__ == '__main__':

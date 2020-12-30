@@ -5,17 +5,17 @@ defaults:
 
 
 main:
-  experiment_name_prefix: my_exp
+  experiment_name_prefix: final_exp
   seed: 1
-  num_workers: 8 #todo increase?
+  num_workers: 5 #todo increase?
   use_full: True
   start_from_pretrained_model: False # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
       pretrained_model_path: './model.pth'
-#      base_path: '/datashare'
-      base_path: './zip'
-      logs: 'logs/'
+      base_path: '/datashare'
+#      base_path: './zip'
+      logs: 'logs_full/'
       vocab_path: './vocab.json'
     train_paths:
       vqaDataset: './vqaDataset_train.pkl'
@@ -33,7 +33,7 @@ main:
     paths:
       pretrained_model_path: './model_small.pth'
       base_path: './small_data'
-      logs: 'logs/'
+      logs: 'logs_small/'
       vocab_path: './vocab_small.json'
     train_paths:
       vqaDataset: './vqaDataset_train_small.pkl'
@@ -58,13 +58,13 @@ train:
     kernel_size: 3
     dropout: 0.4
     # num_channels OVERRIDEN
-    num_channels: [3, 64, 128, 256, 512] # last entry should match image_features
-    stride: 2  # OVERRIDEN
+    num_channels: [3, 64, 128, 256] # last entry should match image_features
+    stride: 1  # OVERRIDEN
     do_skip_connection: False  # OVERRIDEN
   attention:
     hidden_dim: 1024
     glimpses: 2
-    do_option: "|" # Options "*" / "+" / "|"  # OVERRIDEN
+    do_option: "+" # Options "*" / "+" / "|"  # OVERRIDEN
     dropout: 0.4
   classifier:
     hidden_dim: 1024
@@ -75,7 +75,7 @@ train:
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
 
   n_epochs_stop: 6
-  num_epochs: 10
+  num_epochs: 8
   batch_size: 128
   save_model: True
   lr: # TODO what are reasonable values?
