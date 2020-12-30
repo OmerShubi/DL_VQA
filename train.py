@@ -11,16 +11,16 @@ from tqdm import tqdm
 from utils import train_utils
 from torch.utils.data import DataLoader
 from utils.types import Scores, Metrics
-from utils.train_utils import TrainParams,batch_accuracy
+from utils.train_utils import TrainParams, batch_accuracy
 from utils.train_logger import TrainLogger
 
 
 def get_metrics(best_eval_score: float, eval_score: float, train_loss: float) -> Metrics:
     """
     Example of metrics dictionary to be reported to tensorboard. Change it to your metrics
-    :param best_eval_score:
-    :param eval_score:
-    :param train_loss:
+    :param best_eval_score: best_eval_score
+    :param eval_score: eval_score
+    :param train_loss: train_loss
     :return:
     """
     return {'Metrics/BestAccuracy': best_eval_score,
@@ -35,11 +35,11 @@ def update_learning_rate(optimizer, iteration, initial_lr):
         param_group['lr'] = lr
 
 
-
 def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, train_params: TrainParams,
           logger: TrainLogger, optimizer_stuff: dict) -> Metrics:
     """
-    Training procedure. Change each part if needed (optimizer, loss, etc.)
+    Training procedure
+
     :param model:
     :param train_loader:
     :param eval_loader:
@@ -70,7 +70,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
             batch_loss, batch_score = run_batch(model,
                                                 log_softmax,
                                                 batch_data,
-                                                train_params.max_answers, type_='Train')
+                                                train_params.max_answers)
 
             # Optimization step
             optimizer.zero_grad()
@@ -119,10 +119,10 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
 
         logger.report_scalars(scalars, epoch)
 
-        scalars_2perplot = {'Accuracy': {'Train':metrics['train_score'],
-                                'Validation': metrics['eval_score']},
-                   'Loss': {'Train':metrics['train_loss'],
-                            'Validation': metrics['eval_loss']}}
+        scalars_2perplot = {'Accuracy': {'Train': metrics['train_score'],
+                                         'Validation': metrics['eval_score']},
+                            'Loss': {'Train': metrics['train_loss'],
+                                     'Validation': metrics['eval_loss']}}
 
         logger.report_scalars_same_plot(scalars_2perplot, epoch)
 
@@ -145,6 +145,7 @@ def train(model: nn.Module, train_loader: DataLoader, eval_loader: DataLoader, t
 def evaluate(model: nn.Module, dataloader: DataLoader, max_answers):
     """
     Evaluate a model without gradient calculation
+
     :param model: instance of a model
     :param dataloader: dataloader to evaluate the model on
     :return: tuple of (accuracy, loss) values
@@ -158,7 +159,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers):
         batch_loss, batch_score = run_batch(model,
                                             log_softmax,
                                             batch_data,
-                                            max_answers, type_='Val')
+                                            max_answers)
         loss += batch_loss
         score += batch_score
     loss /= len(dataloader)
@@ -168,7 +169,16 @@ def evaluate(model: nn.Module, dataloader: DataLoader, max_answers):
     return score, loss
 
 
-def run_batch(model, log_softmax, batch_data, max_answers, type_):
+def run_batch(model, log_softmax, batch_data, max_answers):
+    """
+    Run a single batch through the model
+    :param model:
+    :param log_softmax:
+    :param batch_data:
+    :param max_answers:
+    :param type_:
+    :return:
+    """
     v, q, a_indices, a_values, a_length, idx, q_len = batch_data
     if torch.cuda.is_available():
         v = v.cuda()
@@ -193,9 +203,6 @@ def run_batch(model, log_softmax, batch_data, max_answers, type_):
     # remove values that where part of padding (0) and divide by 10 to get probabilities
     a_values_flat_nonzero = a_values_flat[a_values_flat.nonzero()].flatten() / 10.0
 
-    #
     batch_loss = (nll_relevant * a_values_flat_nonzero).sum() / batch_size
-    # loss = (nll * a.to_dense() / 10).sum(dim=1).mean()
     batch_score = batch_accuracy(y_hat.data, (a_indices, a_values, (batch_size, max_answers)))
-    # print(f"{type_} - Batch Loss:{batch_loss,3}, Batch Acc:{batch_score/10,4}")
     return batch_loss, batch_score

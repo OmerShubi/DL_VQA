@@ -9,10 +9,10 @@ main:
   seed: 1
   num_workers: 5 #todo increase?
   use_full: True
-  start_from_pretrained_model: False # If True make sure not using AX!!! and make sure model actually exists!
+  start_from_pretrained_model: True # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
-      pretrained_model_path: './model.pth'
+      pretrained_model_path: './logs_full/final_exp_12_30_17_44_25/model.pth'
 #      base_path: '/datashare'
       base_path: './zip'
       logs: 'logs_full/'
@@ -63,7 +63,7 @@ train:
   attention:
     hidden_dim: 1024
     glimpses: 2
-    do_option: "+" # Options "*" / "+" / "|"  # OVERRIDEN
+    do_option: "*" # Options "*" / "+" / "|"  # OVERRIDEN
     dropout: 0.3
   classifier:
     hidden_dim: 1024
@@ -74,7 +74,7 @@ train:
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
 
   n_epochs_stop: 6
-  num_epochs: 8
+  num_epochs: 80
   batch_size: 128
   save_model: True
   lr:

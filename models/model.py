@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
 from torch.nn.utils.rnn import pack_padded_sequence
 
 
@@ -12,6 +11,7 @@ class VqaNet(nn.Module):
 
     def __init__(self, cfg, embedding_tokens):
         super(VqaNet, self).__init__()
+        # Model Parameters
         text_cfg = cfg['text']
         image_cfg = cfg['image']
         attention_cfg = cfg['attention']
@@ -21,9 +21,9 @@ class VqaNet(nn.Module):
         if text_cfg['bidirectional']:
             lstm_out_features *= 2
         glimpses = attention_cfg['glimpses']
-        # image_features = image_cfg['image_features']
         image_features = image_cfg['num_channels'][-1]
 
+        # Question Feature Extractor Model
         self.text = questionNet(
             embedding_tokens=embedding_tokens,
             embedding_features=text_cfg['embedding_features'],
@@ -33,7 +33,8 @@ class VqaNet(nn.Module):
             bidirectional=text_cfg['bidirectional'])
 
         #TODO change!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        self.image = ImageNet2(image_cfg)
+        # Image Feature Extractor Model
+        self.image = ImageNet(image_cfg=image_cfg)
 
         self.attention = Attention(
             v_features=image_features,
@@ -52,12 +53,15 @@ class VqaNet(nn.Module):
         )
 
     def forward(self, v, q, q_len):
-        v = self.image(v)
-        q = self.text(q, list(q_len.data))
-        v = v / (v.norm(p=2, dim=1, keepdim=True).expand_as(v) + 1e-12)
 
+        v = self.image(v)  # Pass image through image feature extractor
+        v = v / (v.norm(p=2, dim=1, keepdim=True).expand_as(v) + 1e-12)  # Normalize output image
+
+        q = self.text(q, list(q_len.data)) # Pass question through question feature extractor
+
+        # Apply the attention
         attention = self.attention(v, q)
-        v = apply_attention(v, attention)
+        v = image_question_attention(v, attention)
 
         combined = torch.cat([v, q], dim=1)
         answer = self.classifier(combined)
@@ -82,12 +86,12 @@ class ImageNet2(nn.Sequential):
         self.add_module('drop', nn.Dropout(image_cng['dropout']))
 
 class ImageNet(nn.Module):
-    def __init__(self, image_cng):
+    def __init__(self, image_cfg):
         super(ImageNet, self).__init__()
-        self.do_skip_connection = image_cng['do_skip_connection']
-        kernel_size = image_cng['kernel_size']
-        self.num_channels = image_cng['num_channels']
-        self.stride = image_cng['stride']
+        self.do_skip_connection = image_cfg['do_skip_connection']
+        kernel_size = image_cfg['kernel_size']
+        self.num_channels = image_cfg['num_channels']
+        self.stride = image_cfg['stride']
         padding = kernel_size//2
         for i in range(len(self.num_channels)-1):
             if (self.do_skip_connection and i % 2 == 0) or not self.do_skip_connection:
@@ -103,10 +107,9 @@ class ImageNet(nn.Module):
                     setattr(self, f'conv_skip{i}', nn.Conv2d(in_channels=self.num_channels[i-1], out_channels=self.num_channels[i+1],
                                                              kernel_size=1, stride=self.stride, bias=False))
 
-
         self.maxpool = nn.MaxPool2d(2, 2)
 
-        self.dropout = nn.Dropout(image_cng['dropout'])
+        self.dropout = nn.Dropout(image_cfg['dropout'])
 
     def forward(self, x):
 
@@ -133,20 +136,36 @@ class ImageNet(nn.Module):
 class questionNet(nn.Module):
     def __init__(self, embedding_tokens, embedding_features, lstm_features, num_lstm_layers, drop, bidirectional):
         super(questionNet, self).__init__()
-        self.embedding = nn.Embedding(num_embeddings=embedding_tokens, embedding_dim=embedding_features, padding_idx=0)
+
+        self.embedding = nn.Embedding(num_embeddings=embedding_tokens,
+                                      embedding_dim=embedding_features,
+                                      padding_idx=0)
         self.drop = nn.Dropout(drop)
+
         self.tanh = nn.Tanh()
+
         self.lstm = nn.LSTM(input_size=embedding_features,
                             hidden_size=lstm_features,
-                            num_layers=num_lstm_layers, dropout=drop, bidirectional=bidirectional)
+                            num_layers=num_lstm_layers,
+                            dropout=drop,
+                            bidirectional=bidirectional)
 
     def forward(self, q, q_len):
-        embedded = self.embedding(q)
-        embedded_drop = self.drop(embedded)
-        tanhed = self.tanh(embedded_drop)
-        packed = pack_padded_sequence(tanhed, q_len, batch_first=True, enforce_sorted=False)
-        _, (_, c) = self.lstm(packed)
-        return c.transpose(0, 1).flatten(1)
+
+        # Embedding --> Dropout --> Tahnh --> Packing --> Lstm
+
+        q_embedded = self.embedding(q)
+        q_embedded_drop = self.drop(q_embedded)
+        q_embedded_drop_tanh = self.tanh(q_embedded_drop)
+
+        packed_sequence = pack_padded_sequence(input=q_embedded_drop_tanh,
+                                               lengths=q_len,
+                                               batch_first=True,
+                                               enforce_sorted=False)
+
+        _, (_, lstm_cell_state) = self.lstm(packed_sequence)
+
+        return lstm_cell_state.transpose(0, 1).flatten(1)
 
 
 class Attention(nn.Module):
@@ -167,7 +186,7 @@ class Attention(nn.Module):
 
         v = self.v_conv(self.drop(v))
         q = self.q_lin(self.drop(q))
-        q = tile_2d_over_nd(q, v)
+        q = tile_question_over_image(q, v)
         if self.do_option == '*':
             x = self.relu(v * q)
         elif self.do_option == '+':
@@ -188,27 +207,28 @@ class Classifier(nn.Sequential):
         self.add_module('lin2', nn.Linear(in_features=mid_features, out_features=out_features))
 
 
-def apply_attention(input_, attention):
-    """ Apply any number of attention maps over the input. """
-    n, c = input_.size()[:2]
+def image_question_attention(image_features, attention):
+    """ Apply the attention map over the image """
+
+    batch_size, num_channels = image_features.size()[:2]
+    image_features = image_features.view(batch_size, 1, num_channels, -1)  # [batch_size, 1, num_channels, s]
+
     glimpses = attention.size(1)
+    attention = attention.view(batch_size, glimpses, -1)
 
-    # flatten the spatial dims into the third dim, since we don't need to care about how they are arranged
-    input_ = input_.view(n, 1, c, -1)  # [n, 1, c, s]
-    attention = attention.view(n, glimpses, -1)
-    attention = F.softmax(attention, dim=-1).unsqueeze(2)  # [n, g, 1, s]
-    weighted = attention * input_  # [n, g, v, s]
-    weighted_mean = weighted.sum(dim=-1)  # [n, g, v]
-    return weighted_mean.view(n, -1)
+    attention = F.softmax(attention, dim=-1).unsqueeze(2)  # [batch_size, glimpses, 1, s]
+
+    weighted = attention * image_features  # [batch_size, glimpses, v, s]
+    weighted_mean = weighted.sum(dim=-1)  # [batch_size, glimpses, v]
+    return weighted_mean.view(batch_size, -1)
 
 
-def tile_2d_over_nd(feature_vector, feature_map):
-    """ Repeat the same feature vector over all spatial positions of a given feature map.
-        The feature vector should have the same batch size and number of features as the feature map.
+def tile_question_over_image(question_features, image_features):
     """
-    n, c = feature_vector.size()
-    spatial_size = feature_map.dim() - 2
-    tiled = feature_vector.view(n, c, *([1] * spatial_size)).expand_as(feature_map)
-    return tiled
+        Repeat the question features to be the same shape as the image features
+    """
+    batch_size, num_channels = question_features.size()
+    spatial_dim = image_features.dim() - 2
+    tiled_question = question_features.view(batch_size, num_channels, *([1] * spatial_dim)).expand_as(image_features)
+    return tiled_question
 
-# TODO make look like own
