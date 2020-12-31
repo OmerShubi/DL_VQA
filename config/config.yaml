@@ -12,7 +12,8 @@ main:
   start_from_pretrained_model: True # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
-      pretrained_model_path: './logs_full/final_exp_12_30_17_44_25/model.pth'
+      pretrained_model_path: './logs_full/final_exp_12_30_17_7_37/model.pth'
+#      pretrained_model_path: './logs_full/final_exp_12_30_20_5_47/model.pth'
 #      base_path: '/datashare'
       base_path: './zip'
       logs: 'logs_full/'
@@ -31,7 +32,7 @@ main:
       processed_imgs: './processed_val_images.h5'
   small:
     paths:
-      pretrained_model_path: './model_small.pth'
+      pretrained_model_path: './logs_small/final_exp_12_30_21_53_10/model.pth'
       base_path: './small_data'
       logs: 'logs_small/'
       vocab_path: './vocab_small.json'
@@ -57,13 +58,15 @@ train:
   image:
     kernel_size: 3
     dropout: 0.3
-    num_channels: [3, 64, 128, 256] # last entry should match image_features
+#    num_channels: [3, 64, 128, 256] # last entry should match image_features
+    num_channels: [3, 32, 64, 128, 512, 1024] # last entry should match image_features
     stride: 1  # OVERRIDEN
     do_skip_connection: False
   attention:
     hidden_dim: 1024
     glimpses: 2
-    do_option: "*" # Options "*" / "+" / "|"  # OVERRIDEN
+#    do_option: "*" # Options "*" / "+" / "|"  # OVERRIDEN
+    do_option: "+" # Options "*" / "+" / "|"  # OVERRIDEN
     dropout: 0.3
   classifier:
     hidden_dim: 1024
