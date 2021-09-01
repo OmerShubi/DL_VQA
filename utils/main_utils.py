@@ -15,7 +15,7 @@ from typing import Dict
 from utils.types import PathT
 from collections import MutableMapping
 from utils.config_schema import CFG_SCHEMA
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, listconfig
 
 
 def get_model_string(model: nn.Module) -> str:
@@ -30,10 +30,15 @@ def get_model_string(model: nn.Module) -> str:
     for w in model.parameters():
         n_params += functools.reduce(operator.mul, w.size(), 1)
 
-    model_string += '\n'
-    model_string += f'Params: {n_params}'
+    text_params = sum(p.numel() for p in model.text.parameters())
+    image_params = sum(p.numel() for p in model.image.parameters())
+    attention_params = sum(p.numel() for p in model.attention.parameters())
+    classifier_params = sum(p.numel() for p in model.classifier.parameters())
 
-    return model_string
+    model_string += '\n'
+    model_string += f'Total params: {n_params} (Text: {text_params}, Image: {image_params}, Attention: {attention_params}, Classifier: {classifier_params})'
+
+    return model_string, n_params
 
 
 def set_seed(seed: int) -> None:
@@ -88,7 +93,10 @@ def _flatten_dict(d: MutableMapping, parent_key: str = '', sep: str = '_') -> Di
 
     for k, v in d.items():
         new_key = parent_key + sep + k if parent_key else k
-        if isinstance(v, MutableMapping):
+        if isinstance(v, listconfig.ListConfig):
+            for indx, elem in enumerate(v):
+                items.append((new_key + str(indx), elem))
+        elif isinstance(v, MutableMapping):
             items.extend(_flatten_dict(v, new_key, sep=sep).items())
         else:
             items.append((new_key, v))
@@ -99,7 +107,7 @@ def _flatten_dict(d: MutableMapping, parent_key: str = '', sep: str = '_') -> Di
 def get_flatten_dict(cfg: DictConfig) -> Dict:
     """
     Returns flatten dictionary, given a config dictionary
-    :param cfg: config file
+    :param cfg: config filed
     :return: flatten dictionary
     """
     return _flatten_dict(cfg)
@@ -109,7 +117,6 @@ def init(cfg: DictConfig) -> None:
     """
     :cfg: hydra configuration file
     """
-    # TODO: Trains
     os.chdir(hydra.utils.get_original_cwd())
     validate_input(cfg)
 

@@ -75,6 +75,15 @@ class TrainLogger:
         """
         self.tensorboard_writer.add_scalar(tag, scalar_value, step)
 
+    def report_scalar_same_plot(self, tag: str, scalar_value: float, step: int) -> None:
+        """
+        Report a scalar to tensorboard
+        :param tag: report the scalar under tag
+        :param scalar_value:
+        :param step: epoch
+        """
+        self.tensorboard_writer.add_scalars(tag, scalar_value, step)
+
     def report_graph(self, model: nn.Module, model_input: InputSample) -> None:
         """
         Report a model structure to tensorboard
@@ -99,7 +108,7 @@ class TrainLogger:
             model_dict['optimizer_state'] = optimizer.state_dict()
 
         model_path = os.path.join(self.exp_dir, 'model.pth')
-
+        print(f"Saving model to {model_path}")
         torch.save(model_dict, model_path)
 
     @staticmethod
@@ -148,6 +157,15 @@ class TrainLogger:
         for scalar, scalar_value in scalars.items():
             self.report_scalar(scalar, scalar_value, epoch)
 
+    def report_scalars_same_plot(self, scalars, epoch):
+        """
+        Report batch of scalars
+        :param scalars: {scalar_key: scalar_value}. For instance: {'Accuracy_train': 99.32}
+        :param epoch:
+        """
+        for scalar, scalar_value in scalars.items():
+            self.report_scalar_same_plot(scalar, scalar_value, epoch)
+
     def write_epoch_statistics(self, epoch: int, epoch_time: float, train_loss: float, norm: float,
                                train_score: float, eval_score: float) -> None:
         """
@@ -159,11 +177,11 @@ class TrainLogger:
         :param train_score:
         :param eval_score:
         """
-        text = 'Time: %.2f, ' % epoch_time
-        text += 'Gradient norm: %.4f, ' % train_loss
-        text += 'Train loss: %.2f, ' % norm
-        text += 'Train Score: %.2f, ' % train_score
-        text += 'Val score: %.2f' % eval_score
+        text = 'Time: %.1f, ' % epoch_time
+        text += 'Gradient norm: %.1f, ' % norm
+        text += 'Train loss: %.4f, ' % train_loss
+        text += 'Train Score: %.4f, ' % train_score
+        text += 'Val score: %.4f' % eval_score
 
         self.write(text, epoch)
 

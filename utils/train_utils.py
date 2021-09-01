@@ -11,34 +11,19 @@ from omegaconf import DictConfig
 
 def batch_accuracy(predicted, true):
     """ Compute the accuracies for a batch of predictions and answers """
+    #  predicted_index is tensor of batch X index of highest predicted value
     _, predicted_index = predicted.max(dim=1, keepdim=True)
-    agreeing = true.gather(dim=1, index=predicted_index)
-    '''
-    Acc needs to be averaged over all 10 choose 9 subsets of human answers.
-    While we could just use a loop, surely this can be done more efficiently (and indeed, it can).
-    There are two cases for the 1 chosen answer to be discarded:
-    (1) the discarded answer is not the predicted answer => acc stays the same
-    (2) the discarded answer is the predicted answer => we have to subtract 1 from the number of agreeing answers
+    # agreeing is tensor of number of people that said each predicted_index answer
+    indices, values, size = true
+    indices_nonzero = indices.nonzero().t()
+    indices_for_slicing = indices_nonzero.cpu().numpy()
+    relevant_values = values[indices_for_slicing]
+    indices_nonzero[1] = indices[indices_for_slicing]-1
+    true_sparse = torch.sparse_coo_tensor(indices_nonzero.cuda(), relevant_values, size)
+    agreeing = torch.tensor([true_sparse[batch_index, index.item()] for batch_index, index in enumerate(predicted_index)])
 
-    There are (10 - num_agreeing_answers) of case 1 and num_agreeing_answers of case 2, thus
-    acc = ((10 - agreeing) * min( agreeing      / 3, 1)
-           +     agreeing  * min((agreeing - 1) / 3, 1)) / 10
+    return torch.sum((agreeing * 0.3).clamp(max=1))
 
-    Let's do some more simplification:
-    if num_agreeing_answers == 0:
-        acc = 0  since the case 1 min term becomes 0 and case 2 weighting term is 0
-    if num_agreeing_answers >= 4:
-        acc = 1  since the min term in both cases is always 1
-    The only cases left are for 1, 2, and 3 agreeing answers.
-    In all of those cases, (agreeing - 1) / 3  <  agreeing / 3  <=  1, so we can get rid of all the mins.
-    By moving num_agreeing_answers from both cases outside the sum we get:
-        acc = agreeing * ((10 - agreeing) + (agreeing - 1)) / 3 / 10
-    which we can simplify to:
-        acc = agreeing * 0.3
-    Finally, we can combine all cases together with:
-        min(agreeing * 0.3, 1)
-    '''
-    return (agreeing * 0.3).clamp(max=1)
 
 def compute_score_with_logits(logits: Tensor, labels: Tensor) -> Tensor:
     """
@@ -71,18 +56,20 @@ class TrainParams:
     This class holds all train parameters.
     Add here variable in case configuration file is modified.
     """
+    n_epochs_stop: int
     num_epochs: int
     lr: float
     lr_decay: float
     lr_gamma: float
     lr_step_size: int
-    grad_clip: float
     save_model: bool
+    max_answers: int
 
     def __init__(self, **kwargs):
         """
         :param kwargs: configuration file
         """
+        self.n_epochs_stop = kwargs['n_epochs_stop']
         self.num_epochs = kwargs['num_epochs']
 
         self.lr = kwargs['lr']['lr_value']
@@ -90,8 +77,8 @@ class TrainParams:
         self.lr_gamma = kwargs['lr']['lr_gamma']
         self.lr_step_size = kwargs['lr']['lr_step_size']
 
-        self.grad_clip = kwargs['grad_clip']
         self.save_model = kwargs['save_model']
+        self.max_answers = kwargs['max_answers']
 
 
 def get_train_params(cfg: DictConfig) -> TrainParams:

@@ -1,39 +1,165 @@
 defaults:
   - hydra/job_logging: disabled
   - hydra/output_subdir: null
-hydra:
-  output_subdir: null
-  run:
-    dir: logs/hydra
+  - hydra/sweeper: ax
+
+
 main:
-  experiment_name_prefix: my_exp
+  experiment_name_prefix: final_exp
   seed: 1
-  num_workers: 6
-  parallel: False
-  gpus_to_use: 1,2
-  trains: False
-  paths:
-    base_path: '/datashare'
-    logs: 'logs/'
-    processed_imgs: './resnet-14x14.h5'
-    vocab_path: './vocab.json'
-  train_paths:
-    questions: 'v2_OpenEnded_mscoco_train2014_questions.json'
-    answers: 'v2_mscoco_train2014_annotations.json'
-    imgs: 'train2014'
-  val_paths:
-    questions: 'v2_OpenEnded_mscoco_val2014_questions.json'
-    answers: 'v2_mscoco_val2014_annotations.json'
-    imgs: 'val2014'
+  num_workers: 5 #todo increase?
+  use_full: True
+  start_from_pretrained_model: True # If True make sure not using AX!!! and make sure model actually exists!
+  full:
+    paths:
+      pretrained_model_path: './logs_full/final_exp_12_30_17_7_37/model.pth'
+#      pretrained_model_path: './logs_full/final_exp_12_30_20_5_47/model.pth'
+#      base_path: '/datashare'
+      base_path: './zip'
+      logs: 'logs_full/'
+      vocab_path: './vocab.json'
+    train_paths:
+      vqaDataset: './vqaDataset_train.pkl'
+      questions: 'v2_OpenEnded_mscoco_train2014_questions.json'
+      answers: 'v2_mscoco_train2014_annotations.json'
+      imgs: 'train2014'
+      processed_imgs: './processed_train_images.h5'
+    val_paths:
+      vqaDataset: './vqaDataset_val.pkl'
+      questions: 'v2_OpenEnded_mscoco_val2014_questions.json'
+      answers: 'v2_mscoco_val2014_annotations.json'
+      imgs: 'val2014'
+      processed_imgs: './processed_val_images.h5'
+  small:
+    paths:
+      pretrained_model_path: './logs_small/final_exp_12_30_21_53_10/model.pth'
+      base_path: './small_data'
+      logs: 'logs_small/'
+      vocab_path: './vocab_small.json'
+    train_paths:
+      vqaDataset: './vqaDataset_train_small.pkl'
+      questions: 'v2_OpenEnded_mscoco_train2014_questions.json'
+      answers: 'v2_mscoco_train2014_annotations.json'
+      imgs: 'train2014'
+      processed_imgs: './processed_train_images_small.h5'
+    val_paths:
+      vqaDataset: './vqaDataset_val_small.pkl'
+      questions: 'v2_OpenEnded_mscoco_val2014_questions.json'
+      answers: 'v2_mscoco_val2014_annotations.json'
+      imgs: 'val2014'
+      processed_imgs: './processed_val_images_small.h5'
 train:
-  num_epochs: 1
-  grad_clip: 0.25
-  dropout: 0.2
-  num_hid: 20
-  batch_size: 64
-  save_model: False
+  text:
+    question_features: 1024
+    embedding_features: 300
+    dropout: 0.3
+    num_lstm_layers: 1 # needs change of code if >1
+    bidirectional: True
+  image:
+    kernel_size: 3
+    dropout: 0.3
+#    num_channels: [3, 64, 128, 256] # last entry should match image_features
+    num_channels: [3, 32, 64, 128, 512, 1024] # last entry should match image_features
+    stride: 1  # OVERRIDEN
+    do_skip_connection: False
+  attention:
+    hidden_dim: 1024
+    glimpses: 2
+#    do_option: "*" # Options "*" / "+" / "|"  # OVERRIDEN
+    do_option: "+" # Options "*" / "+" / "|"  # OVERRIDEN
+    dropout: 0.3
+  classifier:
+    hidden_dim: 1024
+    dropout: 0.3
+
+  max_answers: 3000
+  image_size: 224 # scale shorter end of image to this size and centre crop
+  central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
+
+  n_epochs_stop: 6
+  num_epochs: 80
+  batch_size: 128
+  save_model: True
   lr:
     lr_value: 1e-3
     lr_decay: 15
     lr_gamma: 0.1
-    lr_step_size: 30
+    lr_step_size: 3
+hydra:
+  output_subdir: null
+  run:
+    dir: logs/hydra
+  sweeper:
+    # The following part of config is used to setup the Hydra Ax plugin and is optional
+    ax_config:
+      # max_trials is application-specific. Tune it for your use case
+      max_trials: 4
+
+      experiment:
+        # Default to minimize, set to false to maximize
+        minimize: False
+
+      early_stop:
+        # Number of epochs without a significant improvement from
+        # the currently known best parameters
+        # An Epoch is defined as a batch of trials executed in parallel
+        max_epochs_without_improvement: 4
+
+      params:
+#        train.text.bidirectional:
+#          type: choice
+#          values: [ False, True ]
+#          value_type: bool
+#        train.image.do_skip_connection:
+#          type: choice
+#          values: [ False, True ]
+#          value_type: bool
+        train.image.stride:
+          type: choice
+          values: [ 1, 2 ]
+          is_ordered: True
+          value_type: int
+        train.attention.do_option:
+          type: choice
+          values: ["'+'", "'*'"]
+          value_type: str
+#        train.image.num_channels:
+#          type: choice
+#          values: [
+#            "[3, 64, 128, 256]",
+#            "[3, 64, 128, 256, 512]",
+#            "[3, 32, 64, 128, 512, 1024]",
+#          ]
+#          value_type: str
+#"""
+#224*224*3
+#224 112 56 28
+# 224*224*64
+# 224*224*32
+#stride | do_skip_connection | num_num_channels | output_grid_size
+#1           0                     4                 28
+#1           0                     5                 14
+#1           0                     6                 7
+#
+#
+#2           0                     4                 7
+#2           0                     5                 3
+#2           0                     6                 1
+#
+#
+#1           1                     4                 56
+#1           1                     5                 28
+#1           1                     6                 14
+#
+#
+#2           1                     2                 112
+#2           1                     3                 28
+#2           1                     4                 7
+#2           1                     5                 14
+#2           1                     6                 7
+#
+#
+#"""
+
+# TODO batchnorm?
+

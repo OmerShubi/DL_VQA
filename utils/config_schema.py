@@ -7,28 +7,79 @@ CFG_SCHEMA = {
         'experiment_name_prefix': str,
         'seed': int,
         'num_workers': int,
-        'parallel': bool,
-        'gpus_to_use': str,
-        'trains': bool,
-        'paths': {
-            'base_path': str,
-            'logs': str,
-            'processed_imgs': str,
-            'vocab_path': str, },
-        'train_paths': {
-            'questions': str,
-            'answers': str,
-            'imgs': str},
-        'val_paths': {
-            'questions': str,
-            'answers': str,
-            'imgs': str}
+        'use_full': bool,
+        'start_from_pretrained_model': bool,
+        'full':
+            {'paths': {
+                'pretrained_model_path': str,
+                'base_path': str,
+                'logs': str,
+                'vocab_path': str, },
+            'train_paths': {
+                'vqaDataset': str,
+                'questions': str,
+                'answers': str,
+                'imgs': str,
+                'processed_imgs': str},
+            'val_paths': {
+                'vqaDataset': str,
+                'questions': str,
+                'answers': str,
+                'imgs': str,
+                'processed_imgs': str}},
+        'small':
+            {'paths': {
+                'pretrained_model_path': str,
+                'base_path': str,
+                'logs': str,
+                'vocab_path': str, },
+            'train_paths': {
+                'vqaDataset': str,
+                'questions': str,
+                'answers': str,
+                'imgs': str,
+                'processed_imgs': str},
+            'val_paths': {
+                'vqaDataset': str,
+                'questions': str,
+                'answers': str,
+                'imgs': str,
+                'processed_imgs': str}}
     },
     'train': {
+        'text': {
+            'question_features': int,
+            'embedding_features': int,
+            'dropout': float,
+            'num_lstm_layers': int,
+            'bidirectional': bool,
+        },
+        'image': {
+            # 'image_features': int,
+            'kernel_size': int,
+            'dropout': float,
+            'num_channels': list,
+            'stride': int,
+            'do_skip_connection': bool,
+        },
+        'attention': {
+            'hidden_dim': int,
+            'glimpses': int,
+            'do_option': str,
+            'dropout': float,
+
+        },
+        'classifier': {
+            'hidden_dim': int,
+            'dropout': float,
+        },
+
+        'max_answers': int,
+        'image_size': int,
+        'central_fraction': float,
+
+        'n_epochs_stop': int,
         'num_epochs': int,
-        'grad_clip': float,
-        'dropout': float,
-        'num_hid': int,
         'batch_size': int,
         'save_model': bool,
         'lr': {
