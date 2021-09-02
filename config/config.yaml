@@ -5,17 +5,16 @@ defaults:
 
 
 main:
-  experiment_name_prefix: final_exp
+  experiment_name_prefix: final_model
   seed: 1
-  num_workers: 5 #todo increase?
+  num_workers: 5
   use_full: True
   start_from_pretrained_model: True # If True make sure not using AX!!! and make sure model actually exists!
   full:
     paths:
-      pretrained_model_path: './logs_full/final_exp_12_30_17_7_37/model.pth'
-#      pretrained_model_path: './logs_full/final_exp_12_30_20_5_47/model.pth'
-#      base_path: '/datashare'
-      base_path: './zip'
+      pretrained_model_path: './model.pth'
+      base_path: '/datashare'
+#      base_path: './zip'
       logs: 'logs_full/'
       vocab_path: './vocab.json'
     train_paths:
@@ -58,8 +57,8 @@ train:
   image:
     kernel_size: 3
     dropout: 0.3
-#    num_channels: [3, 64, 128, 256] # last entry should match image_features
-    num_channels: [3, 32, 64, 128, 512, 1024] # last entry should match image_features
+    num_channels: [3, 64, 128, 256] # last entry should match image_features
+#    num_channels: [3, 32, 64, 128, 512, 1024] # last entry should match image_features
     stride: 1  # OVERRIDEN
     do_skip_connection: False
   attention:
@@ -76,12 +75,12 @@ train:
   image_size: 224 # scale shorter end of image to this size and centre crop
   central_fraction: 0.875  # only take this much of the centre when scaling and centre cropping
 
-  n_epochs_stop: 6
+  n_epochs_stop: 24
   num_epochs: 80
-  batch_size: 128
+  batch_size: 64
   save_model: True
   lr:
-    lr_value: 1e-3
+    lr_value: 5e-4
     lr_decay: 15
     lr_gamma: 0.1
     lr_step_size: 3
