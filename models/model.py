@@ -32,9 +32,7 @@ class VqaNet(nn.Module):
             num_lstm_layers=text_cfg['num_lstm_layers'],
             bidirectional=text_cfg['bidirectional'])
 
-        #TODO change!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # Image Feature Extractor Model
-        self.image = ImageNet(image_cfg=image_cfg)
+        self.image = ImageNet2(image_cfg)
 
         self.attention = Attention(
             v_features=image_features,
